@@ -1,0 +1,1 @@
+# TODO: convert spherical image to rectangular iamge
