@@ -1,2 +1,28 @@
 .idea/
+__pycache__/
+connection/__pycache__/
+pose_estimation/__pycache__/
+# virtualenv setting
+pose_estimation/MobileHumanPose/venv_3DMPPE
+
+# output result
+pose_estimation/MobileHumanPose/output
+
+# demo output
+pose_estimation/MobileHumanPose/demo/*.pth.tar
+
+# byte-compiled
+/__pycache_/
+pose_estimation/MobileHumanPose/*/__pycache/*
+pose_estimation/MobileHumanPose/*/*/__pycache/
+pose_estimation/MobileHumanPose/*/*/*/__pycache/
+pose_estimation/MobileHumanPose/*.py[cod]
+pose_estimation/MobileHumanPose/*.pyc
+
+# nohup process
+pose_estimation/MobileHumanPose/*.out
+
+# idea
+pose_estimation/MobileHumanPose/.DS_Store
+pose_estimation/MobileHumanPose/.idea
 

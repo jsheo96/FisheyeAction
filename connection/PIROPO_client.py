@@ -11,13 +11,13 @@ args = vars(ap.parse_args())
 sender = imagezmq.ImageSender(connect_to="tcp://{}:5555".format(
     args["server_ip"]))
 rpiName = socket.gethostname()
-piropo_folder = '/Data/3D_pose_estimatinon_dataset/Room A/omni_1A/omni1A_test6'
+piropo_folder = '/Data/3D_pose_estimation_dataset/PIROPO/Room A/omni_1A/omni1A_test6'
 if __name__ == '__main__':
     for fn in sorted(os.listdir(piropo_folder)):
         if 'jpg' not in fn:
             continue
         path = os.path.join(piropo_folder, fn)
         frame = cv2.imread(path)
-        cv2.imshow('client send this image', frame)
-        cv2.waitKey(100)
+        # cv2.imshow('client send this image', frame)
+        # cv2.waitKey(100)
         sender.send_image(rpiName, frame)

@@ -19,7 +19,10 @@ class Server:
 
 if __name__ == '__main__':
     server = Server()
+    i=0
     while True:
+        print(i)
+        i += 1
         frame = server.get_image()
         cv2.imshow('server received this image', frame)
         cv2.waitKey(1)
