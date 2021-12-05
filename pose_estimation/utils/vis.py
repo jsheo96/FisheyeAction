@@ -38,6 +38,19 @@ def vis_keypoints(img, kps, kps_lines, kp_thresh=0.4, alpha=1):
     # Blend the keypoints.
     return cv2.addWeighted(img, 1.0 - alpha, kp_mask, alpha, 0)
 
+def vis_3d_keypoints(kps_3d, skeleton):
+    fig = plt.figure()
+    ax = fig.add_subplot(111, projection='3d')
+    ax.scatter(kps_3d[:,0], kps_3d[:,2], -kps_3d[:,1], marker='o')
+    for i in range(len(skeleton)):
+        i1 = skeleton[i][0]
+        i2 = skeleton[i][1]
+        x = np.array([kps_3d[i1, 0], kps_3d[i2, 0]])
+        y = np.array([kps_3d[i1, 1], kps_3d[i2, 1]])
+        z = np.array([kps_3d[i1, 2], kps_3d[i2, 2]])
+        ax.plot(x, z, -y)
+    plt.show()
+
 def vis_3d_skeleton(kpt_3d, kpt_3d_vis, kps_lines, filename=None):
 
     fig = plt.figure()

@@ -11,9 +11,12 @@ from pose_estimation.utils.vis import vis_keypoints
 import os
 from pose_estimation.mask_rcnn import get_mask_rcnn
 from pose_estimation.bbox_trans import gen_trans_from_patch_cv
-from pose_estimation.utils.pose_utils import process_bbox
+from pose_estimation.utils.pose_utils import process_bbox, pixel2cam
 from pose_estimation.dataset import generate_patch_image
 from pose_estimation.dataset import gen_trans_from_patch_cv
+from pose_estimation.utils.vis import vis_3d_keypoints
+from pose_estimation.utils.vis import vis_3d_multiple_skeleton
+import math
 class PoseEstimator:
     def __init__(self):
         # TODO: initialize models
@@ -28,7 +31,12 @@ class PoseEstimator:
         print(bboxes)
 
         poses = []
+        output_pose_3d_list = []
         height, width = image.shape[0], image.shape[1]
+        # TODO: get right focal lengths
+        focal = [1500.9799492788811, 1495.9003438753227]  # x-axis, y-axis
+        # princpt = [width / 2, height / 2]  # x-axis, y-axis
+        princpt = [1030.7205375378683, 1045.5236081955522]  # x-axis, y-axis
         for idx in (labels==1).nonzero():
             idx = idx.item()
             bbox = bboxes[idx]
@@ -46,7 +54,7 @@ class PoseEstimator:
             # x2 = int(bbox[0]+bbox[2])
             # y2 = int(bbox[1]+bbox[3])
             # image_human = image[y1:y2, x1:x2, :]
-            cv2.imshow('pose_net input '+str(idx), image_human[:,:,::-1].astype(np.uint8))
+            # cv2.imshow('pose_net input '+str(idx), image_human[:,:,::-1].astype(np.uint8))
 
             # image_human = cv2.resize(image, (cfg.input_shape[1], cfg.input_shape[0]))
             # image_human = image_human[:, :, ::-1].copy()
@@ -57,10 +65,12 @@ class PoseEstimator:
             image_human = image_human.cuda()[None, :, :, :]
             with torch.no_grad():
                 pose = self.pose_net(image_human)
+                print(pose)
                 #TODO: calculate k
                 # TODO: get focal lengths of camera...
-                # k_value = np.array([math.sqrt(cfg.bbox_real[0]*cfg.bbox_real[1]*f[0]*f[1]/(area))]).astype(np.float32)
-                k_value = np.ones((image_human.shape[0], 1), dtype=np.float32)*3000.0
+                area = w * h
+                k_value = np.array([math.sqrt(cfg.bbox_real[0]*cfg.bbox_real[1]*focal[0]*focal[1]/(area))]).astype(np.float32)
+                # k_value = np.ones((image_human.shape[0], 1), dtype=np.float32)*3000.0
                 k_value = torch.tensor(k_value)
                 root = self.root_net(image_human, k_value)
 
@@ -73,13 +83,17 @@ class PoseEstimator:
                 pose_3d[:, :2] = np.dot(np.linalg.inv(img2bb_trans_001), pose_3d_xy1.transpose(1, 0)).transpose(1, 0)[:,
                                  :2]
                 pose = pose_3d[:, :2].copy()
+                pose_3d[:, 2] = (pose_3d[:, 2] / cfg.depth_dim * 2 - 1) * (cfg.bbox_3d_shape[0] / 2) + root[0,2].item()
+                pose_3d = pixel2cam(pose_3d, focal, princpt)
+                output_pose_3d_list.append(pose_3d.copy())
                 poses.append(pose)
 
-        return poses
+        vis_kps = np.array(output_pose_3d_list)
+
+
+        return poses, vis_kps
 
     def visualize(self, image, pose):
-        joint_num = 21
-        skeleton = ( (0, 16), (16, 1), (1, 15), (15, 14), (14, 8), (14, 11), (8, 9), (9, 10), (10, 19), (11, 12), (12, 13), (13, 20), (1, 2), (2, 3), (3, 4), (4, 17), (1, 5), (5, 6), (6, 7), (7, 18) )
 
         # tmpimg = image[0].cpu().numpy()
         # tmpimg = tmpimg * np.array(cfg.pixel_std).reshape(3, 1, 1) + np.array(cfg.pixel_mean).reshape(3, 1, 1)
@@ -91,13 +105,14 @@ class PoseEstimator:
         # tmpkps[:2, :] = pose[0, :, :2].cpu().numpy().transpose(1, 0) / cfg.output_shape[0] * cfg.input_shape[0]
         # tmpkps[2, :] = 1
 
-        vis_kps = np.zeros((3, joint_num))
+        vis_kps = np.zeros((3, cfg.joint_num))
         vis_kps[0, :] = pose[:, 0]
         vis_kps[1, :] = pose[:, 1]
         vis_kps[2, :] = 1
 
-        tmpimg = vis_keypoints(image, vis_kps, skeleton)
+        tmpimg = vis_keypoints(image, vis_kps, cfg.skeleton)
         return tmpimg
+
 
 
 if __name__ == '__main__':
@@ -106,19 +121,23 @@ if __name__ == '__main__':
     # data_folder = '/Data/3D_pose_estimation_dataset/MuPoTS/data/MultiPersonTestSet/TS20'
     # data_folder = '/Data/3D_pose_estimation_dataset/MuCo/data/unaugmented_set/1'
     data_folder = '/Data/3D_pose_estimation_dataset/MuPoTS/data/MultiPersonTestSet/TS1'
+    # data_folder = '/Data/3D_pose_estimation_dataset/RAPID'
+    # save_folder = '/Data/3D_pose_estimation_dataset/demo_result'
     if __name__ == '__main__':
         for fn in sorted(os.listdir(data_folder)):
-            if 'jpg' not in fn:
+            if 'jpg' not in fn and 'png' not in fn:
                 continue
             path = os.path.join(data_folder, fn)
             print(path)
             frame = cv2.imread(path)
             # TODO: feed bounding box of a person instead of a full image.
             # frame = cv2.resize(frame, (256, 256))
-            poses = pose_estimator.forward(frame)
+            poses, vis_kps = pose_estimator.forward(frame)
             for pose in poses:
                 # print(pose)
                 frame = pose_estimator.visualize(frame, pose)
+            vis_3d_multiple_skeleton(vis_kps, np.ones_like(vis_kps), cfg.skeleton,
+                                     'output_pose_3d (x,y,z: camera-centered. mm.)')
             cv2.imshow('', cv2.resize(frame, None, fx=0.25, fy=0.25))
             cv2.waitKey()
 
