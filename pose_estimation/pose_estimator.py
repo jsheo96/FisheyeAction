@@ -17,6 +17,7 @@ from pose_estimation.dataset import gen_trans_from_patch_cv
 from pose_estimation.utils.vis import vis_3d_keypoints
 from pose_estimation.utils.vis import vis_3d_multiple_skeleton
 import math
+import time
 class PoseEstimator:
     def __init__(self):
         # TODO: initialize models
@@ -25,10 +26,10 @@ class PoseEstimator:
         self.detect_net = get_mask_rcnn()
 
     def forward(self, image):
+
         # TODO: process image to 3d skeleton
         labels, bboxes = self.detect_net.detect(image)
-        print(labels)
-        print(bboxes)
+        start = time.time()
 
         poses = []
         output_pose_3d_list = []
@@ -38,6 +39,7 @@ class PoseEstimator:
         # princpt = [width / 2, height / 2]  # x-axis, y-axis
         princpt = [1030.7205375378683, 1045.5236081955522]  # x-axis, y-axis
         for idx in (labels==1).nonzero():
+
             idx = idx.item()
             bbox = bboxes[idx]
             #TODO generate patch image
@@ -65,8 +67,7 @@ class PoseEstimator:
             image_human = image_human.cuda()[None, :, :, :]
             with torch.no_grad():
                 pose = self.pose_net(image_human)
-                print(pose)
-                #TODO: calculate k
+                # TODO: calculate k
                 # TODO: get focal lengths of camera...
                 area = w * h
                 k_value = np.array([math.sqrt(cfg.bbox_real[0]*cfg.bbox_real[1]*focal[0]*focal[1]/(area))]).astype(np.float32)
@@ -88,8 +89,9 @@ class PoseEstimator:
                 output_pose_3d_list.append(pose_3d.copy())
                 poses.append(pose)
 
-        vis_kps = np.array(output_pose_3d_list)
 
+        vis_kps = np.array(output_pose_3d_list)
+        print(time.time() - start)
 
         return poses, vis_kps
 
@@ -128,7 +130,6 @@ if __name__ == '__main__':
             if 'jpg' not in fn and 'png' not in fn:
                 continue
             path = os.path.join(data_folder, fn)
-            print(path)
             frame = cv2.imread(path)
             # TODO: feed bounding box of a person instead of a full image.
             # frame = cv2.resize(frame, (256, 256))
@@ -136,8 +137,8 @@ if __name__ == '__main__':
             for pose in poses:
                 # print(pose)
                 frame = pose_estimator.visualize(frame, pose)
-            vis_3d_multiple_skeleton(vis_kps, np.ones_like(vis_kps), cfg.skeleton,
-                                     'output_pose_3d (x,y,z: camera-centered. mm.)')
+            # vis_3d_multiple_skeleton(vis_kps, np.ones_like(vis_kps), cfg.skeleton,
+            #                          'output_pose_3d (x,y,z: camera-centered. mm.)')
             cv2.imshow('', cv2.resize(frame, None, fx=0.25, fy=0.25))
             cv2.waitKey()
 

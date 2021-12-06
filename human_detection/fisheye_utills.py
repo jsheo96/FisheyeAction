@@ -56,7 +56,8 @@ class FisheyeUtills:
         k =  0.5 : stereographic
         k =  1.0 : rectilinear (perspective)
         '''
-        if not torch.jit.isinstance(fov, torch.Tensor):
+        # if not torch.jit.isinstance(fov, torch.Tensor):
+        if not isinstance(fov, torch.Tensor):
             fov = torch.tensor(fov)
         
         if k >= -1 and k < 0:
@@ -103,9 +104,11 @@ class FisheyeUtills:
         k =  0.5 : stereographic
         k =  1.0 : rectilinear (perspective)
         '''
-        if not torch.jit.isinstance(u, torch.Tensor):
+        # if not torch.jit.isinstance(u, torch.Tensor):
+        if not isinstance(u, torch.Tensor):
             u = torch.tensor(u)
-        if not torch.jit.isinstance(v, torch.Tensor):
+        # if not torch.jit.isinstance(v, torch.Tensor):
+        if not isinstance(v, torch.Tensor):
             v = torch.tensor(v)
         assert u.shape==v.shape
             
@@ -196,9 +199,11 @@ class FisheyeUtills:
         '''
         rotate spherical coordinates for target point to be moved to pole
         '''
-        if not torch.jit.isinstance(t_lon, torch.Tensor):
+        # if not torch.jit.isinstance(t_lon, torch.Tensor):
+        if not isinstance(t_lon, torch.Tensor):
             t_lon = torch.tensor(t_lon)
-        if not torch.jit.isinstance(t_lat, torch.Tensor):
+        # if not torch.jit.isinstance(t_lat, torch.Tensor):
+        if not isinstance(t_lat, torch.Tensor):
             t_lat = torch.tensor(t_lat)
         
         rot_axis = (torch.cos(t_lon+np.pi/2), torch.sin(t_lon+np.pi/2), 0)
@@ -255,7 +260,7 @@ class FisheyeUtills:
         f = self.fov2f(d * np.sqrt(np.square(u0)+np.square(v0)), fov.numpy(), k=1)
         
         # u, v denote pixel coordinates in tangent image
-        u, v = torch.meshgrid(torch.arange(height), torch.arange(width), indexing='ij')
+        u, v = torch.meshgrid(torch.arange(height), torch.arange(width))#, indexing='ij')
         
         # U, V denote displacement from principal point in mm
         U = d * (u - u0)
