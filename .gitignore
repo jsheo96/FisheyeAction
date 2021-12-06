@@ -23,9 +23,12 @@ pose_estimation/MobileHumanPose/*.pyc
 pose_estimation/MobileHumanPose/*.out
 
 # idea
-pose_estimation/MobileHumanPose/.DS_Store
-pose_estimation/MobileHumanPose/.idea
+.DS_Store
+.idea
 
 # pretrained weight
 human_detection/weights/*.ckpt
 human_detection/weights/*.pth
+
+# ipython checkpoints
+.ipynb_checkpoints
