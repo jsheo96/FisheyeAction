@@ -26,3 +26,6 @@ pose_estimation/MobileHumanPose/*.out
 pose_estimation/MobileHumanPose/.DS_Store
 pose_estimation/MobileHumanPose/.idea
 
+# pretrained weight
+human_detection/weights/*.ckpt
+human_detection/weights/*.pth
