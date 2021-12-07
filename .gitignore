@@ -34,4 +34,4 @@ human_detection/weights/*.pth
 .ipynb_checkpoints
 
 # demo files
-human_detection/demo.ipynb
+human_detection/demo
