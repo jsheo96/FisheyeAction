@@ -39,3 +39,6 @@ if __name__ == '__main__':
             #                          'output_pose_3d (x,y,z: camera-centered. mm.)')
             cv2.imshow('', cv2.resize(frame, None, fx=0.25, fy=0.25))
             cv2.waitKey()
+
+
+
