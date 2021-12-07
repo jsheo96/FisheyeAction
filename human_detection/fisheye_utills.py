@@ -278,7 +278,23 @@ class FisheyeUtills:
         
         return torch.stack((lon, lat),dim=0)
         
-    # def visualize_patches(self, patches, 
+    def visualize_patches(self, patches, k_values, detectnet): 
+        ncols = int(np.round(np.sqrt(len(patches))))
+        nrows = len(patches)//ncols + 1
+
+        fig, axes = plt.subplots(ncols=ncols, nrows=nrows, figsize=(10,10))
+        for row in range(nrows):
+            for col in range(ncols):
+                idx = row * ncols + col
+                if idx < len(patches):
+                    axes[row, col].imshow(patches[idx].permute(1,2,0))
+                    axes[row, col].set_xticklabels([])
+                    axes[row, col].set_yticklabels([])
+                    if detectnet:
+                        axes[row, col].set_title(f'k = {int(k_values[idx]):d} mm')
+                else:
+                    axes[row, col].remove()
+        plt.tight_layout()
     
     def get_tangent_patch(self, uvwha,
                                 visualize=False, 
@@ -338,23 +354,7 @@ class FisheyeUtills:
             patches.append(patch)
         
         if visualize:
-            
-            ncols = int(np.round(np.sqrt(len(patches))))
-            nrows = len(patches)//ncols + 1
-            
-            fig, axes = plt.subplots(ncols=ncols, nrows=nrows, figsize=(10,10))
-            for row in range(nrows):
-                for col in range(ncols):
-                    idx = row * ncols + col
-                    if idx < len(patches):
-                        axes[row, col].imshow(patches[idx].permute(1,2,0))
-                        axes[row, col].set_xticklabels([])
-                        axes[row, col].set_yticklabels([])
-                        if detectnet:
-                            axes[row, col].set_title(f'k = {k_values[idx]:.2f}')
-                    else:
-                        axes[row, col].remove()
-            plt.tight_layout()
+            self.visualize_patches(patches, k_values, detectnet=detectnet)
         
         if detectnet:
             return patches, sphericals, k_values
