@@ -32,3 +32,6 @@ human_detection/weights/*.pth
 
 # ipython checkpoints
 .ipynb_checkpoints
+
+# demo files
+human_detection/demo.ipynb
