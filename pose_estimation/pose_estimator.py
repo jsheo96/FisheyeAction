@@ -23,12 +23,33 @@ import time
 
 class PoseEstimatorV2:
     def __init__(self):
+        '''Pose estimator implementation using MobileHumanPose and RootNet
+        produces pose tensors from image_patches.
+        '''
         self.pose_net = get_mobile_human_pose_net()
         self.root_net = get_root_net()
         self.transform = transforms.Compose(
             [transforms.ToTensor(), transforms.Normalize(mean=cfg.pixel_mean, std=cfg.pixel_std)])
 
     def forward(self, image_patch, k_value):
+        '''Calculate 3D pose coordinates of 21 joints of humans detected in
+        image patches.
+
+        Arguments:
+            image_patch (array) : a numpy array whose shape is (256, 256, 3)
+                                  The color order should be R, G, B and the data type
+                                  should be np.uint8
+            k_value (tensor) : a tensor with the shape of (1,)
+                                k_value is originally calculated by sqrt(f_x*f_y*area(real)/area(image))
+                                k_value reflects the approximate depth from camera to human.
+                                k_value in fisheye camera is calculated using triangulation with
+                                approximate height of ceiling on which the camera is attached.
+        Returns:
+            pose_3d (tesnor) : a tensor whose shape is (21, 3)
+                                x,y,z coordinates of 21 joints
+                                x,y is within 0~255 which height/width of image_patch
+                                z is depth of human detected in mm
+        '''
         assert image_patch.shape == (256, 256, 3), 'image_patch shape is not equal to (256, 256, 3). Got {}'.format(image_patch.shape)
         with torch.no_grad():
             image_patch = self.transform(image_patch)
