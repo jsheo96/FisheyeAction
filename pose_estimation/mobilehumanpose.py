@@ -94,7 +94,7 @@ def get_mobile_human_pose_net(backbone_str='LPSKI', is_train=False, joint_num=21
     if is_train == True:
         model.backbone.init_weights()
     model = DataParallel(model).cuda()
-    checkpoint_path = '/Data/MobileHumanPose/output/model_dump/snapshot_7.pth.tar'
+    checkpoint_path = 'pose_estimation/models/snapshot_7.pth.tar'
     ckpt = torch.load(checkpoint_path)
     model.load_state_dict(ckpt['network'])
     model.eval()
