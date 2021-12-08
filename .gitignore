@@ -35,3 +35,4 @@ human_detection/weights/*.pth
 
 # demo files
 human_detection/demo
+pose_estimation/models/*.tar
