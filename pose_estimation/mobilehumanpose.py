@@ -93,7 +93,7 @@ def get_mobile_human_pose_net(backbone_str='LPSKI', is_train=False, joint_num=21
     model = CustomNet(BACKBONE_DICT[backbone_str](input_size = INPUT_SIZE, joint_num = joint_num, embedding_size = EMBEDDING_SIZE, width_mult = WIDTH_MULTIPLIER), joint_num)
     if is_train == True:
         model.backbone.init_weights()
-    model = DataParallel(model).cuda() if torch.cuda.is_available() else DataParallel(model).cpu()
+    model = DataParallel(model).cuda()
     checkpoint_path = '/Data/MobileHumanPose/output/model_dump/snapshot_7.pth.tar'
     ckpt = torch.load(checkpoint_path)
     model.load_state_dict(ckpt['network'])
