@@ -1,7 +1,7 @@
 import cv2
 from PIL import Image
-from human_detection.api import Detector
-from human_detection.fisheye_utills import FisheyeUtills as FU
+from api import Detector
+from fisheye_utills import FisheyeUtills as FU
 
 class DetectNet:
     def __init__(self):

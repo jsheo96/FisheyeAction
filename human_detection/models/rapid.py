@@ -4,9 +4,9 @@ import torch
 import torch.nn as nn
 import torchvision.transforms.functional as tvf
 
-from human_detection.utils.iou_mask import iou_mask, iou_rle
-import human_detection.models.backbones
-import human_detection.models.losses
+from utils.iou_mask import iou_mask, iou_rle
+import models.backbones
+import models.losses
 
 
 class RAPiD(nn.Module):
@@ -25,7 +25,7 @@ class RAPiD(nn.Module):
         self.index_S = torch.Tensor(indices[2]).long()
 
         if backbone == 'dark53':
-            self.backbone = human_detection.models.backbones.Darknet53()
+            self.backbone = models.backbones.Darknet53()
             print("Using backbone Darknet-53. Loading ImageNet weights....")
             backbone_imgnet_path = './weights/dark53_imgnet.pth'
             if os.path.exists(backbone_imgnet_path):
@@ -35,11 +35,11 @@ class RAPiD(nn.Module):
                 print('Warning: no ImageNet-pretrained weights found.',
                       'Please check https://github.com/duanzhiihao/RAPiD for it.')
         elif backbone == 'res34':
-            self.backbone = human_detection.models.backbones.resnet34()
+            self.backbone = models.backbones.resnet34()
         elif backbone == 'res50':
-            self.backbone = human_detection.models.backbones.resnet50()
+            self.backbone = models.backbones.resnet50()
         elif backbone == 'res101':
-            self.backbone = human_detection.models.backbones.resnet101()
+            self.backbone = models.backbones.resnet101()
         else:
             raise Exception('Unknown backbone name')
         pnum = sum(p.numel() for p in self.backbone.parameters() if p.requires_grad)
@@ -51,9 +51,9 @@ class RAPiD(nn.Module):
             chS, chM, chL = 128, 256, 512
         elif backbone in {'res50','res101'}:
             chS, chM, chL = 512, 1024, 2048
-        self.branch_L = human_detection.models.backbones.YOLOBranch(chL, 18)
-        self.branch_M = human_detection.models.backbones.YOLOBranch(chM, 18, prev_ch=(chL//2,chM//2))
-        self.branch_S = human_detection.models.backbones.YOLOBranch(chS, 18, prev_ch=(chM//2,chS//2))
+        self.branch_L = models.backbones.YOLOBranch(chL, 18)
+        self.branch_M = models.backbones.YOLOBranch(chM, 18, prev_ch=(chL//2,chM//2))
+        self.branch_S = models.backbones.YOLOBranch(chS, 18, prev_ch=(chM//2,chS//2))
         
         self.pred_L = PredLayer(self.anchors_all, self.index_L, **kwargs)
         self.pred_M = PredLayer(self.anchors_all, self.index_M, **kwargs)
@@ -118,9 +118,9 @@ class PredLayer(nn.Module):
         self.bce_loss = nn.BCELoss(reduction='sum')
         loss_angle = kwargs.get('loss_angle', 'period_L1')
         if loss_angle == 'period_L1':
-            self.loss4angle = human_detection.models.losses.period_L1(reduction='sum')
+            self.loss4angle = models.losses.period_L1(reduction='sum')
         elif loss_angle == 'period_L2':
-            self.loss4angle = human_detection.models.losses.period_L2(reduction='sum')
+            self.loss4angle = models.losses.period_L2(reduction='sum')
         elif loss_angle == 'none':
             # inference
             self.loss4angle = None
