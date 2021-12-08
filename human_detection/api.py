@@ -6,7 +6,7 @@ from tqdm import tqdm
 import torch
 import torchvision.transforms.functional as tvf
 
-from human_detection.utils import visualization, dataloader, utils
+from utils import visualization, dataloader, utils
 
 
 class Detector():
@@ -29,10 +29,10 @@ class Detector():
             self.model = model
             return
         if model_name == 'rapid':
-            from human_detection.models.rapid import RAPiD
+            from models.rapid import RAPiD
             model = RAPiD(backbone='dark53')
         elif model_name == 'rapid_export': # testing-only version
-            from human_detection.models.rapid_export import RAPiD
+            from models.rapid_export import RAPiD
             model = RAPiD()
         else:
             raise NotImplementedError()
