@@ -2,7 +2,7 @@ import torch
 import torch.nn as nn
 from torch.nn import functional as F
 from pose_estimation.lpnet_ski_concat import LpNetSkiConcat
-import os.path as osp
+from pathlib import Path
 from torch.nn.parallel.data_parallel import DataParallel
 
 class Config:
@@ -45,10 +45,13 @@ def soft_argmax(heatmaps, joint_num):
     #accu_x = accu_x * torch.nn.parallel.comm.broadcast(torch.arange(1,cfg.output_shape[1]+1).type(torch.cuda.FloatTensor), devices=[accu_x.device.index])[0]
     #accu_y = accu_y * torch.nn.parallel.comm.broadcast(torch.arange(1,cfg.output_shape[0]+1).type(torch.cuda.FloatTensor), devices=[accu_y.device.index])[0]
     #accu_z = accu_z * torch.nn.parallel.comm.broadcast(torch.arange(1,cfg.depth_dim+1).type(torch.cuda.FloatTensor), devices=[accu_z.device.index])[0]
-    accu_x = accu_x * torch.cuda.comm.broadcast(torch.arange(1,cfg.output_shape[1]+1).type(torch.cuda.FloatTensor), devices=[accu_x.device.index])[0]
-    accu_y = accu_y * torch.cuda.comm.broadcast(torch.arange(1,cfg.output_shape[0]+1).type(torch.cuda.FloatTensor), devices=[accu_y.device.index])[0]
-    accu_z = accu_z * torch.cuda.comm.broadcast(torch.arange(1,cfg.depth_dim+1).type(torch.cuda.FloatTensor), devices=[accu_z.device.index])[0]
-
+    # accu_x = accu_x * torch.cuda.comm.broadcast(torch.arange(1,cfg.output_shape[1]+1).type(torch.cuda.FloatTensor), devices=[accu_x.device.index])[0]
+    # accu_y = accu_y * torch.cuda.comm.broadcast(torch.arange(1,cfg.output_shape[0]+1).type(torch.cuda.FloatTensor), devices=[accu_y.device.index])[0]
+    # accu_z = accu_z * torch.cuda.comm.broadcast(torch.arange(1,cfg.depth_dim+1).type(torch.cuda.FloatTensor), devices=[accu_z.device.index])[0]
+    
+    accu_x = accu_x * torch.arange(1,cfg.output_shape[1]+1).to(accu_x.device)
+    accu_y = accu_y * torch.arange(1,cfg.output_shape[0]+1).to(accu_y.device)
+    accu_z = accu_z * torch.arange(1,cfg.depth_dim+1).to(accu_z.device)
 
     accu_x = accu_x.sum(dim=2, keepdim=True) -1
     accu_y = accu_y.sum(dim=2, keepdim=True) -1
@@ -93,9 +96,15 @@ def get_mobile_human_pose_net(backbone_str='LPSKI', is_train=False, joint_num=21
     model = CustomNet(BACKBONE_DICT[backbone_str](input_size = INPUT_SIZE, joint_num = joint_num, embedding_size = EMBEDDING_SIZE, width_mult = WIDTH_MULTIPLIER), joint_num)
     if is_train == True:
         model.backbone.init_weights()
-    model = DataParallel(model).cuda()
-    checkpoint_path = '/Data/MobileHumanPose/output/model_dump/snapshot_7.pth.tar'
-    ckpt = torch.load(checkpoint_path)
+    
+    checkpoint_path = Path(__file__).parent.resolve() / 'models/snapshot_7.pth.tar'
+    if torch.cuda.is_available():
+        model = DataParallel(model).cuda()
+        ckpt = torch.load(str(checkpoint_path))
+    else:
+        model = DataParallel(model).cpu()
+        ckpt = torch.load(str(checkpoint_path), map_location=torch.device('cpu'))
+        
     model.load_state_dict(ckpt['network'])
     model.eval()
     return model

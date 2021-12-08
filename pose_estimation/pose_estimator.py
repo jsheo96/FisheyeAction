@@ -53,9 +53,11 @@ class PoseEstimatorV2:
         assert image_patch.shape == (256, 256, 3), 'image_patch shape is not equal to (256, 256, 3). Got {}'.format(image_patch.shape)
         with torch.no_grad():
             image_patch = self.transform(image_patch)
-            image_patch = image_patch.cuda()[None, :, :, :]
+            image_patch = image_patch.cuda() if torch.cuda.is_available() else image_patch.cpu()
+            image_patch = image_patch.unsqueeze(0)
             pose = self.pose_net(image_patch)
-            k_value = torch.tensor(k_value)
+            if not isinstance(k_value, torch.Tensor):
+                k_value = torch.tensor(k_value)
             root = self.root_net(image_patch, k_value)
 
             pose_3d = pose[0].cpu().numpy()
