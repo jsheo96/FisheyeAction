@@ -1,7 +1,5 @@
 import pickle
-# TODO: Do 3D Human Pose Estimation from given images.
 import cv2
-from connection.server import Server
 import torch
 from pose_estimation.config import cfg
 from pose_estimation.mobilehumanpose import get_mobile_human_pose_net
@@ -11,13 +9,8 @@ import numpy as np
 from pose_estimation.utils.vis import vis_keypoints
 import os
 from pose_estimation.mask_rcnn import get_mask_rcnn
-from pose_estimation.bbox_trans import gen_trans_from_patch_cv
 from pose_estimation.utils.pose_utils import process_bbox, pixel2cam
 from pose_estimation.dataset import generate_patch_image
-from pose_estimation.dataset import gen_trans_from_patch_cv
-from pose_estimation.utils.vis import vis_3d_keypoints
-from pose_estimation.utils.vis import vis_3d_multiple_skeleton
-
 import math
 import time
 
