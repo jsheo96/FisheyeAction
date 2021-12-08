@@ -3,7 +3,7 @@ import random
 import torch
 from torchvision import transforms
 
-from human_detection.utils.iou_mask import iou_mask, iou_rle
+from utils.iou_mask import iou_mask, iou_rle
 
 
 def normalize_bbox(xywha, w, h, max_angle=1):
