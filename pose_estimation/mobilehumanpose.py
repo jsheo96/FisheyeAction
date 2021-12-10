@@ -80,19 +80,24 @@ class CustomNet(nn.Module):
             loss_coord = (loss_coord[:,:,0] + loss_coord[:,:,1] + loss_coord[:,:,2] * target_have_depth)/3.
             return loss_coord
 
-def get_mobile_human_pose_net(backbone_str='LPSKI', is_train=False, joint_num=21):
+def get_mobile_human_pose_net(backbone_str='LPSKI'):
+    '''
+        Arguments:
+            backbone_str: backbone network type. Currently this repo supports LPSKI backbone only.
+            is_train (bool): whether the backbone sd
+            joint_num:
+        Returns:
+            model (DataParallel): MobileHumanPose network with pretrained weights (snapshot_7.pth.tar)
+                                The returned model is evaluation mode (not training)
+    '''
     INPUT_SIZE = cfg.input_shape
     EMBEDDING_SIZE = cfg.embedding_size  # feature dimension
     WIDTH_MULTIPLIER = cfg.width_multiplier
 
     assert INPUT_SIZE == (256, 256)
-
-    print("=" * 60)
-    print("{} BackBone Generated".format(backbone_str))
-    print("=" * 60)
-    model = CustomNet(BACKBONE_DICT[backbone_str](input_size = INPUT_SIZE, joint_num = joint_num, embedding_size = EMBEDDING_SIZE, width_mult = WIDTH_MULTIPLIER), joint_num)
-    if is_train == True:
-        model.backbone.init_weights()
+    assert backbone_str == 'LPSKI', 'Currently supports LPSKI only. Got {}'.format(backbone_str)
+    joint_num=21
+    model = CustomNet(BACKBONE_DICT[backbone_str](input_size=INPUT_SIZE, joint_num=joint_num, embedding_size=EMBEDDING_SIZE, width_mult=WIDTH_MULTIPLIER), joint_num)
     model = DataParallel(model).cuda()
     checkpoint_path = 'pose_estimation/models/snapshot_7.pth.tar'
     ckpt = torch.load(checkpoint_path)

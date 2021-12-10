@@ -23,8 +23,7 @@ def vis_keypoints(img, kps, kps_lines, kp_thresh=0.4, alpha=1):
         p1 = kps[0, i1].astype(np.int32), kps[1, i1].astype(np.int32)
         p2 = kps[0, i2].astype(np.int32), kps[1, i2].astype(np.int32)
         if kps[2, i1] > kp_thresh and kps[2, i2] > kp_thresh:
-            cv2.line(
-                kp_mask, p1, p2,
+            cv2.line(kp_mask, p1, p2,
                 color=colors[l], thickness=2, lineType=cv2.LINE_AA)
         if kps[2, i1] > kp_thresh:
             cv2.circle(

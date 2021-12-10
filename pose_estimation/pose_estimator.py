@@ -1,7 +1,5 @@
 import pickle
-# TODO: Do 3D Human Pose Estimation from given images.
 import cv2
-from connection.server import Server
 import torch
 from pose_estimation.config import cfg
 from pose_estimation.mobilehumanpose import get_mobile_human_pose_net
@@ -11,13 +9,8 @@ import numpy as np
 from pose_estimation.utils.vis import vis_keypoints
 import os
 from pose_estimation.mask_rcnn import get_mask_rcnn
-from pose_estimation.bbox_trans import gen_trans_from_patch_cv
 from pose_estimation.utils.pose_utils import process_bbox, pixel2cam
 from pose_estimation.dataset import generate_patch_image
-from pose_estimation.dataset import gen_trans_from_patch_cv
-from pose_estimation.utils.vis import vis_3d_keypoints
-from pose_estimation.utils.vis import vis_3d_multiple_skeleton
-
 import math
 import time
 
@@ -38,19 +31,21 @@ class PoseEstimatorV2:
         Arguments:
             image_patch (array) : a numpy array whose shape is (256, 256, 3)
                                   The color order should be R, G, B and the data type
-                                  should be np.uint8
+                                  NOTE: dtype should be np.float32
+                                  NOTE: value range must be 0. ~255.
             k_value (tensor) : a tensor with the shape of (1,)
                                 k_value is originally calculated by sqrt(f_x*f_y*area(real)/area(image))
                                 k_value reflects the approximate depth from camera to human.
                                 k_value in fisheye camera is calculated using triangulation with
                                 approximate height of ceiling on which the camera is attached.
         Returns:
-            pose_3d (tesnor) : a tensor whose shape is (21, 3)
+            pose_3d (tensor) : a tensor whose shape is (21, 3)
                                 x,y,z coordinates of 21 joints
                                 x,y is within 0~255 which height/width of image_patch
                                 z is depth of human detected in mm
         '''
         assert image_patch.shape == (256, 256, 3), 'image_patch shape is not equal to (256, 256, 3). Got {}'.format(image_patch.shape)
+        assert image_patch.dtype == np.float32, 'image_patch dtype must be np.float32. Got {}'.format(image_patch.dtype)
         with torch.no_grad():
             image_patch = self.transform(image_patch)
             image_patch = image_patch.cuda()[None, :, :, :]
@@ -63,6 +58,27 @@ class PoseEstimatorV2:
             pose_3d[:, 1] = pose_3d[:, 1] / cfg.output_shape[0] * cfg.input_shape[0]
             pose_3d[:, 2] = (pose_3d[:, 2] / cfg.depth_dim * 2 - 1) * (cfg.bbox_3d_shape[0] / 2) + root[0, 2].item()
         return pose_3d
+
+    def visualize(self, image, pose):
+
+        # tmpimg = image[0].cpu().numpy()
+        # tmpimg = tmpimg * np.array(cfg.pixel_std).reshape(3, 1, 1) + np.array(cfg.pixel_mean).reshape(3, 1, 1)
+        # tmpimg = tmpimg.astype(np.uint8)
+        # tmpimg = tmpimg[::-1, :, :]
+        # tmpimg = np.transpose(tmpimg, (1, 2, 0)).copy()
+
+        # tmpkps = np.zeros((3, joint_num))
+        # tmpkps[:2, :] = pose[0, :, :2].cpu().numpy().transpose(1, 0) / cfg.output_shape[0] * cfg.input_shape[0]
+        # tmpkps[2, :] = 1
+
+        vis_kps = np.zeros((3, cfg.joint_num))
+        vis_kps[0, :] = pose[:, 0]
+        vis_kps[1, :] = pose[:, 1]
+        vis_kps[2, :] = 1
+
+        tmpimg = vis_keypoints(image, vis_kps, cfg.skeleton)
+        return tmpimg
+
 
 class PoseEstimator:
     def __init__(self):
@@ -77,6 +93,7 @@ class PoseEstimator:
         start = time.time()
 
         poses = []
+        output_pose_2d_list = []
         output_pose_3d_list = []
         height, width = image.shape[0], image.shape[1]
         focal = [1500.9799492788811, 1495.9003438753227]  # x-axis, y-axis
@@ -91,6 +108,8 @@ class PoseEstimator:
             bbox = process_bbox(bbox, width, height)
 
             image_human, img2bb_trans = generate_patch_image(image, bbox, False, 1.0, 0.0, False)
+            pose_estimator2 = PoseEstimatorV2()
+            pose_ = pose_estimator2.forward(image_human, torch.tensor([30000.]))
 
             # bbox = (x,y,w,h)dfdfdfdfd
             # bbox = process_bbox(bbox, width, height)
@@ -122,11 +141,15 @@ class PoseEstimator:
                 pose_3d = pose[0].cpu().numpy()
                 pose_3d[:, 0] = pose_3d[:, 0] / cfg.output_shape[1] * cfg.input_shape[1]
                 pose_3d[:, 1] = pose_3d[:, 1] / cfg.output_shape[0] * cfg.input_shape[0]
+                print(pose_[:, :2] - pose_3d[:,:2])
                 pose_3d_xy1 = np.concatenate((pose_3d[:, :2], np.ones_like(pose_3d[:, :1])), 1)
                 img2bb_trans_001 = np.concatenate((img2bb_trans, np.array([0, 0, 1]).reshape(1, 3)))
                 pose_3d[:, :2] = np.dot(np.linalg.inv(img2bb_trans_001), pose_3d_xy1.transpose(1, 0)).transpose(1, 0)[:,
                                  :2]
+                output_pose_2d_list.append(pose_3d[:, :2].copy())
+
                 pose = pose_3d[:, :2].copy()
+
                 pose_3d[:, 2] = (pose_3d[:, 2] / cfg.depth_dim * 2 - 1) * (cfg.bbox_3d_shape[0] / 2) + root[0,2].item()
                 pose_3d = pixel2cam(pose_3d, focal, princpt)
                 output_pose_3d_list.append(pose_3d.copy())
@@ -136,7 +159,7 @@ class PoseEstimator:
         vis_kps = np.array(output_pose_3d_list)
         print(time.time() - start)
 
-        return poses, vis_kps
+        return poses, vis_kps, output_pose_2d_list
 
     def visualize(self, image, pose):
 
@@ -161,14 +184,15 @@ class PoseEstimator:
 
 
 if __name__ == '__main__':
-    # pose_estimator = PoseEstimator()
-    pose_estimator = PoseEstimatorV2()
-    data_folder = '/Data/3D_pose_estimation_dataset/PIROPO/Room A/omni_1A/omni1A_test6'
+    pose_estimator = PoseEstimator()
+    # pose_estimator = PoseEstimatorV2()
+    # data_folder = '/Data/3D_pose_estimation_dataset/PIROPO/Room A/omni_1A/omni1A_test6'
     # data_folder = '/Data/3D_pose_estimation_dataset/MuPoTS/data/MultiPersonTestSet/TS20'
     # data_folder = '/Data/3D_pose_estimation_dataset/MuCo/data/unaugmented_set/1'
     data_folder = '/Data/3D_pose_estimation_dataset/MuPoTS/data/MultiPersonTestSet/TS1'
     # data_folder = '/Data/3D_pose_estimation_dataset/RAPID'
     # save_folder = '/Data/3D_pose_estimation_dataset/demo_result'
+    # data_folder = '/Data/FisheyeAction/pose_estimation/'
     if __name__ == '__main__':
         for fn in sorted(os.listdir(data_folder)):
             if 'jpg' not in fn and 'png' not in fn:
@@ -176,10 +200,21 @@ if __name__ == '__main__':
             path = os.path.join(data_folder, fn)
             frame = cv2.imread(path)
             # TODO: feed bounding box of a person instead of a full image.
-            frame = cv2.resize(frame, (256, 256))
+            # frame = cv2.resize(frame, (256, 256))
             k_value = torch.tensor([3000])
-            pose = pose_estimator.forward(frame, k_value)
-            print(pose)
+            poses, vis_kps, output_pose_2d_list = pose_estimator.forward(frame)
+            vis_img = frame.copy()
+            joint_num = 21
+            for n in range(len(output_pose_2d_list))[:1]:
+                vis_kps = np.zeros((3, joint_num))
+                vis_kps[0, :] = output_pose_2d_list[n][:, 0]
+                vis_kps[1, :] = output_pose_2d_list[n][:, 1]
+                vis_kps[2, :] = 1
+                vis_img = vis_keypoints(vis_img, vis_kps, cfg.skeleton)
+            # print(pose)
+            # frame = pose_estimator.visualize(frame, poses[0])
+            cv2.imshow('', cv2.resize(vis_img, None, fx=0.25, fy=0.25))
+            cv2.waitKey()
             # pickle.dump((poses, vis_kps), open(os.path.join(save_folder, fn.split('.')[0]+'.pkl'), 'wb'))
             # for pose in poses:
                 # print(pose)
@@ -191,10 +226,3 @@ if __name__ == '__main__':
             # cv2.imwrite(os.path.join(save_folder, fn), frame)
 
 
-    # If the server recieves frames from other process use below code.
-    # server = Server()
-    # pose_estimation = PoseEstimator()
-    # while True:
-    #     frame = server.get_image()
-    #     pose = pose_estimation.forward(frame)
-    #     print(pose.shape)
