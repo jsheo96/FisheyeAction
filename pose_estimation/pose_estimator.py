@@ -48,9 +48,11 @@ class PoseEstimatorV2:
         assert image_patch.dtype == np.float32, 'image_patch dtype must be np.float32. Got {}'.format(image_patch.dtype)
         with torch.no_grad():
             image_patch = self.transform(image_patch)
-            image_patch = image_patch.cuda()[None, :, :, :]
+            image_patch = image_patch.cuda() if torch.cuda.is_available() else image_patch.cpu()
+            image_patch = image_patch.unsqueeze(0)
             pose = self.pose_net(image_patch)
-            k_value = torch.tensor(k_value)
+            if not isinstance(k_value, torch.Tensor):
+                k_value = torch.tensor(k_value)
             root = self.root_net(image_patch, k_value)
 
             pose_3d = pose[0].cpu().numpy()
@@ -85,7 +87,7 @@ class PoseEstimator:
         # TODO: initialize models
         self.pose_net = get_mobile_human_pose_net()
         self.root_net = get_root_net()
-        self.detect_net = get_mask_rcnn()
+        # self.detect_net = get_mask_rcnn()
 
     def forward(self, image):
 

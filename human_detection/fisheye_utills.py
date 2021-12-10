@@ -7,7 +7,7 @@ from torch.nn import functional as F
 from torchvision import transforms as transforms
 
 class FisheyeUtills:
-    def __init__(self, img,
+    def __init__(self, img = None,
                        sensor_height = 24, 
                        fov = 180, 
                        cam_height = 2300,
@@ -19,20 +19,20 @@ class FisheyeUtills:
         self.patch_height = 256
         self.patch_width = 256
         
-        
-        self.imgs = self.get_image_batch(img)  # self.imgs.shape [N, C, H, W]
-        self.height = self.imgs.shape[2]
-        self.width = self.imgs.shape[3]
-        
-        # sensor pitch i.e. height of single sensor element
-        self.d = self.sensor_height/self.height  
-        
-        # principal point
-        self.u0 = (self.height-1)/2
-        self.v0 = (self.width-1)/2
-        
-        # focal length
-        self.f = self.fov2f(self.u0*self.d, self.fov*np.pi/180, k=-0.5)
+        if img is not None:
+            self.imgs = self.get_image_batch(img)  # self.imgs.shape [N, C, H, W]
+            self.height = self.imgs.shape[2]
+            self.width = self.imgs.shape[3]
+
+            # sensor pitch i.e. height of single sensor element
+            self.d = self.sensor_height/self.height  
+
+            # principal point
+            self.u0 = (self.height-1)/2
+            self.v0 = (self.width-1)/2
+
+            # focal length
+            self.f = self.fov2f(self.u0*self.d, self.fov*np.pi/180, k=-0.5)
 
     def get_image_batch(self, img):
         '''
@@ -75,6 +75,11 @@ class FisheyeUtills:
         '''
         convert spherical(geographic) coordinates to cartesian
         '''
+        if not isinstance(lon, torch.Tensor):
+            lon = torch.tensor(lon)
+        if not isinstance(lat, torch.Tensor):
+            lat = torch.tensor(lat)
+
         X = torch.cos(lat) * torch.cos(lon)
         Y = torch.cos(lat) * torch.sin(lon)
         Z = torch.sin(lat)
@@ -117,7 +122,8 @@ class FisheyeUtills:
         V = (v - self.v0) * self.d
         
         # lon, lat denote lognitude and latitue in virtual sphere
-        lon = torch.atan2(V,U)
+        # need to invert(-) longitude axis to match the direction on image with the direction on virtual sphere
+        lon = -torch.atan2(V,U) 
         
         # PTGui 11 fisheye reverse projection
         if k >= -1 and k < 0:
@@ -156,25 +162,14 @@ class FisheyeUtills:
             raise ValueError(f'{k} is not valid value for fisheye projection')
         
         # U, V denote displacement from principal point in mm
-        U = R * torch.cos(lon)
-        V = R * torch.sin(lon)
+        # need to invert(-) longitude axis to match the direction on image with the direction on virtual sphere
+        U = R * torch.cos(-lon)
+        V = R * torch.sin(-lon)
         
         # u, v denote pixel coordinates in fisheye image
         u = U / self.d + self.u0
         v = V / self.d + self.v0
         return torch.stack((u, v), dim=0)
-    
-#     def perspective(self, lon, lat):
-#         '''
-#         project spherical(geographic) coordinates to image pixel coorinates by perspective projection
-#         '''
-#         # calculate absolute displacement from principal point
-#         U = self.f * torch.tan(np.pi/2 - lat) * torch.cos(lon)
-#         V = self.f * torch.tan(np.pi/2 - lat) * torch.sin(lon)
-#         u = U / self.d + self.u0
-#         v = V / self.d + self.v0
-        
-#         return torch.stack((u,v), dim=0)
     
     def rotate_spherical(self, lon, lat, rot_axis, rot_angle, cart=False):
         '''

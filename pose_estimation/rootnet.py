@@ -4,6 +4,7 @@ from torch.nn import functional as F
 from pose_estimation.resnet import ResNetBackbone
 # from config import cfg
 from torch.nn.parallel.data_parallel import DataParallel
+from pathlib import Path
 
 class Config:
     input_shape = (256, 256)
@@ -64,10 +65,15 @@ class RootNet(nn.Module):
 
         hm_x = xy.sum(dim=(2))
         hm_y = xy.sum(dim=(3))
-
-        coord_x = hm_x * torch.arange(cfg.output_shape[1]).float().cuda()
-        coord_y = hm_y * torch.arange(cfg.output_shape[0]).float().cuda()
         
+        if torch.cuda.is_available():
+            coord_x = hm_x * torch.arange(cfg.output_shape[1]).float().cuda()
+            coord_y = hm_y * torch.arange(cfg.output_shape[0]).float().cuda()
+        else:
+            coord_x = hm_x * torch.arange(cfg.output_shape[1]).float().cpu()
+            coord_y = hm_y * torch.arange(cfg.output_shape[0]).float().cpu()
+
+
         coord_x = coord_x.sum(dim=2)
         coord_y = coord_y.sum(dim=2)
 
@@ -120,7 +126,7 @@ class ResPoseNet(nn.Module):
             return loss_coord
 
 def get_root_net(cfg=cfg, is_train=False):
-    model_path = '/Data/3DMPPE_ROOTNET_RELEASE/output/model_dump/snapshot_19.pth.tar'
+    model_path = Path(__file__).parent.resolve() / 'models/snapshot_19.pth.tar'
     backbone = ResNetBackbone(cfg.resnet_type)
     root_net = RootNet()
     if is_train:
@@ -128,8 +134,14 @@ def get_root_net(cfg=cfg, is_train=False):
         root_net.init_weights()
 
     model = ResPoseNet(backbone, root_net)
-    model = DataParallel(model).cuda()
-    ckpt = torch.load(model_path)
+    
+    if torch.cuda.is_available():
+        model = DataParallel(model).cuda()
+        ckpt = torch.load(model_path)
+    else:
+        model = DataParallel(model).cpu()
+        ckpt = torch.load(model_path, map_location=torch.device('cpu'))
+    
     model.load_state_dict(ckpt['network'])
     model.eval()
     return model
