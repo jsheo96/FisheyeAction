@@ -6,8 +6,13 @@ from pose_estimation.config import cfg
 from pose_estimation.pose_estimator import PoseEstimator
 import os
 import cv2
+import sys
+sys.path.insert(0, 'human_detection')
+
 from human_detection.detector import DetectNet
+
 if __name__ == '__main__':
+
     human_detector = DetectNet()
     pose_estimator = PoseEstimator()
     data_folder = '/Data/3D_pose_estimation_dataset/PIROPO/Room A/omni_1A/omni1A_test6'
