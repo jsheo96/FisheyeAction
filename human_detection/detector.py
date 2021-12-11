@@ -4,10 +4,10 @@ from human_detection.api import Detector
 from human_detection.fisheye_utills import FisheyeUtills as FU
 
 class DetectNet:
-    def __init__(self):
+    def __init__(self, use_cuda=True):
         self.model = Detector(model_name='rapid',
                          weights_path='/Data/FisheyeAction/human_detection/weights/pL1_MWHB1024_Mar11_4000.ckpt',
-                         use_cuda=True)
+                         use_cuda=use_cuda)
 
     def detect(self, img):
         img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)

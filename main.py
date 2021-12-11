@@ -14,8 +14,8 @@ import torch
 import time
 if __name__ == '__main__':
 
-    human_detector = DetectNet()
-    pose_estimator = PoseEstimatorV2()
+    human_detector = DetectNet(use_cuda=False)
+    pose_estimator = PoseEstimatorV2(use_cuda=False)
     data_folder = '/Data/3D_pose_estimation_dataset/PIROPO/Room A/omni_1A/omni1A_test6'
     data_folder = '/Data/3D_pose_estimation_dataset/CEPDOF/Edge_cases'
     # data_folder = '/Data/3D_pose_estimation_dataset/MuPoTS/data/MultiPersonTestSet/TS20'

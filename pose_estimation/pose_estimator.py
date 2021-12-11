@@ -15,7 +15,7 @@ import math
 import time
 
 class PoseEstimatorV2:
-    def __init__(self):
+    def __init__(self,use_cuda=True):
         '''Pose estimator implementation using MobileHumanPose and RootNet
         produces pose tensors from image_patches.
         '''
@@ -23,6 +23,7 @@ class PoseEstimatorV2:
         self.root_net = get_root_net()
         self.transform = transforms.Compose(
             [transforms.ToTensor(), transforms.Normalize(mean=cfg.pixel_mean, std=cfg.pixel_std)])
+        self.use_cuda = use_cuda
 
     def forward(self, image_patch, k_value):
         '''Calculate 3D pose coordinates of 21 joints of humans detected in
@@ -48,7 +49,7 @@ class PoseEstimatorV2:
         assert image_patch.dtype == np.float32, 'image_patch dtype must be np.float32. Got {}'.format(image_patch.dtype)
         with torch.no_grad():
             image_patch = self.transform(image_patch)
-            image_patch = image_patch.cuda() if torch.cuda.is_available() else image_patch.cpu()
+            image_patch = image_patch.cuda() if torch.cuda.is_available() and self.use_cuda else image_patch.cpu()
             image_patch = image_patch.unsqueeze(0)
             pose = self.pose_net(image_patch)
             if not isinstance(k_value, torch.Tensor):
