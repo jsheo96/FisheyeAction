@@ -101,7 +101,7 @@ def get_mobile_human_pose_net(backbone_str='LPSKI'):
     assert backbone_str == 'LPSKI', 'Currently supports LPSKI only. Got {}'.format(backbone_str)
     joint_num=21
     model = CustomNet(BACKBONE_DICT[backbone_str](input_size=INPUT_SIZE, joint_num=joint_num, embedding_size=EMBEDDING_SIZE, width_mult=WIDTH_MULTIPLIER), joint_num)
-    checkpoint_path = 'pose_estimation/weights/snapshot_7.pth.tar'
+    checkpoint_path = '../pose_estimation/weights/snapshot_7.pth.tar'
     if torch.cuda.is_available():
         model = DataParallel(model).cuda()
         ckpt = torch.load(str(checkpoint_path))

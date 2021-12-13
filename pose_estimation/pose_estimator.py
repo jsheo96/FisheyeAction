@@ -8,7 +8,7 @@ import torchvision.transforms as transforms
 import numpy as np
 from pose_estimation.utils.vis import vis_keypoints
 import os
-from pose_estimation.mask_rcnn import get_mask_rcnn
+# from pose_estimation.mask_rcnn import get_mask_rcnn
 from pose_estimation.utils.pose_utils import process_bbox, pixel2cam
 from pose_estimation.dataset import generate_patch_image
 import math
