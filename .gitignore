@@ -29,10 +29,11 @@ pose_estimation/MobileHumanPose/*.out
 # pretrained weight
 human_detection/weights/*.ckpt
 human_detection/weights/*.pth
+pose_estimation/weights/*.tar
 
 # ipython checkpoints
 .ipynb_checkpoints
 
 # demo files
 human_detection/demo
-pose_estimation/models/*.tar
+demo/output
