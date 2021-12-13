@@ -126,7 +126,7 @@ class ResPoseNet(nn.Module):
             return loss_coord
 
 def get_root_net(cfg=cfg, is_train=False):
-    model_path = Path(__file__).parent.resolve() / 'models/snapshot_19.pth.tar'
+    model_path = Path(__file__).parent.resolve() / 'weights/snapshot_19.pth.tar'
     backbone = ResNetBackbone(cfg.resnet_type)
     root_net = RootNet()
     if is_train:
