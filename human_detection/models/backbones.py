@@ -187,3 +187,47 @@ class YOLOBranch(nn.Module):
         detection = self.to_box(x)
 
         return detection, feature
+
+class Darknet53_edit(Darknet53):
+    def __init__(self):
+        super(Darknet53_edit,self).__init__()
+        self.small_net = nn.Sequential(*self.netlist[:15])
+        self.medium_net = nn.Sequential(*self.netlist[15:24])
+        self.large_net = nn.Sequential(*self.netlist[24:])
+
+    def forward(self, x):
+
+        small = self.small_net(x)
+        medium = self.medium_net(small)
+        large = self.large_net(medium)
+        '''
+        for i in range(0,15):
+            x = self.netlist[i](x)
+        small = x
+        for i in range(15,24):
+            x = self.netlist[i](x)
+        medium = x
+        for i in range(24,29):
+            x = self.netlist[i](x)
+        large = x
+        '''
+        return small, medium, large
+
+# backbone speed test
+if __name__ == '__main__':
+    import time
+    import matplotlib.pyplot as plt
+    backbone = Darknet53_edit()
+    avg_ts = []
+    for i in range(1,20):
+        x = torch.randn((i, 3, 1024, 1024))  # input size
+        ts = []
+        for j in range(1):
+            start = time.time()
+            backbone(x)
+            ts.append(time.time()-start)
+        print(sum(ts)/len(ts))
+        avg_ts.append(sum(ts)/len(ts))
+    print(avg_ts)
+    plt.plot(avg_ts)
+    plt.show()

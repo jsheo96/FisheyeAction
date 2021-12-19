@@ -8,7 +8,6 @@ import torchvision.transforms.functional as tvf
 
 from utils import visualization, dataloader, utils
 
-
 class Detector():
     '''
     Wrapper of image object detectors.

@@ -15,7 +15,6 @@ def vis_keypoints(img, kps, kps_lines, kp_thresh=0.4, alpha=1):
 
     # Perform the drawing on a copy of the image, to allow for blending.
     kp_mask = np.copy(img)
-
     # Draw the keypoints.
     for l in range(len(kps_lines)):
         i1 = kps_lines[l][0]

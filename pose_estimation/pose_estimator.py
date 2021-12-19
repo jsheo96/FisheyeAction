@@ -8,7 +8,7 @@ import torchvision.transforms as transforms
 import numpy as np
 from pose_estimation.utils.vis import vis_keypoints
 import os
-from pose_estimation.mask_rcnn import get_mask_rcnn
+# from pose_estimation.mask_rcnn import get_mask_rcnn
 from pose_estimation.utils.pose_utils import process_bbox, pixel2cam
 from pose_estimation.dataset import generate_patch_image
 import math
@@ -187,13 +187,13 @@ class PoseEstimator:
 
 
 if __name__ == '__main__':
-    pose_estimator = PoseEstimator()
-    # pose_estimator = PoseEstimatorV2()
+    # pose_estimator = PoseEstimator()
+    pose_estimator = PoseEstimatorV2()
     # data_folder = '/Data/3D_pose_estimation_dataset/PIROPO/Room A/omni_1A/omni1A_test6'
     # data_folder = '/Data/3D_pose_estimation_dataset/MuPoTS/data/MultiPersonTestSet/TS20'
     # data_folder = '/Data/3D_pose_estimation_dataset/MuCo/data/unaugmented_set/1'
-    data_folder = '/Data/3D_pose_estimation_dataset/MuPoTS/data/MultiPersonTestSet/TS1'
-    # data_folder = '/Data/3D_pose_estimation_dataset/RAPID'
+    # data_folder = '/Data/3D_pose_estimation_dataset/MuPoTS/data/MultiPersonTestSet/TS1'
+    data_folder = '/Data/3D_pose_estimation_dataset/RAPID'
     # save_folder = '/Data/3D_pose_estimation_dataset/demo_result'
     # data_folder = '/Data/FisheyeAction/pose_estimation/'
     if __name__ == '__main__':
@@ -205,19 +205,25 @@ if __name__ == '__main__':
             # TODO: feed bounding box of a person instead of a full image.
             # frame = cv2.resize(frame, (256, 256))
             k_value = torch.tensor([3000])
-            poses, vis_kps, output_pose_2d_list = pose_estimator.forward(frame)
-            vis_img = frame.copy()
-            joint_num = 21
-            for n in range(len(output_pose_2d_list))[:1]:
-                vis_kps = np.zeros((3, joint_num))
-                vis_kps[0, :] = output_pose_2d_list[n][:, 0]
-                vis_kps[1, :] = output_pose_2d_list[n][:, 1]
-                vis_kps[2, :] = 1
-                vis_img = vis_keypoints(vis_img, vis_kps, cfg.skeleton)
+            frame = frame.astype(np.float32)
+            # poses, vis_kps, output_pose_2d_list = pose_estimator.forward(frame)
+            poses = pose_estimator.forward(frame, k_value)
+            print(poses)
+            vis_img = pose_estimator.visualize(frame, poses)
+            cv2.imshow('', vis_img)
+            cv2.waitKey()
+            # vis_img = frame.copy()
+            # joint_num = 21
+            # for n in range(len(output_pose_2d_list))[:1]:
+            #     vis_kps = np.zeros((3, joint_num))
+            #     vis_kps[0, :] = output_pose_2d_list[n][:, 0]
+            #     vis_kps[1, :] = output_pose_2d_list[n][:, 1]
+            #     vis_kps[2, :] = 1
+            #     vis_img = vis_keypoints(vis_img, vis_kps, cfg.skeleton)
             # print(pose)
             # frame = pose_estimator.visualize(frame, poses[0])
-            cv2.imshow('', cv2.resize(vis_img, None, fx=0.25, fy=0.25))
-            cv2.waitKey()
+            # cv2.imshow('', cv2.resize(vis_img, None, fx=0.25, fy=0.25))
+            # cv2.waitKey()
             # pickle.dump((poses, vis_kps), open(os.path.join(save_folder, fn.split('.')[0]+'.pkl'), 'wb'))
             # for pose in poses:
                 # print(pose)
