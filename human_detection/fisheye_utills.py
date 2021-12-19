@@ -6,6 +6,7 @@ from matplotlib import pyplot as plt
 from torch.nn import functional as F
 from torchvision import transforms as transforms
 
+
 class FisheyeUtills:
     def __init__(self, img = None,
                        sensor_height = 24, 
@@ -36,7 +37,7 @@ class FisheyeUtills:
 
     def get_image_batch(self, img):
         '''
-        convert rgb image batch to torch.Tensor    
+        convert rgb image batch to torch.Tensor
         imgs.shape : [N, C, H, W]
         '''
         transform = transforms.Compose([transforms.ToTensor()])
@@ -122,8 +123,7 @@ class FisheyeUtills:
         V = (v - self.v0) * self.d
         
         # lon, lat denote lognitude and latitue in virtual sphere
-        # need to invert(-) longitude axis to match the direction on image with the direction on virtual sphere
-        lon = -torch.atan2(V,U) 
+        lon = torch.atan2(V,U) 
         
         # PTGui 11 fisheye reverse projection
         if k >= -1 and k < 0:
@@ -162,9 +162,8 @@ class FisheyeUtills:
             raise ValueError(f'{k} is not valid value for fisheye projection')
         
         # U, V denote displacement from principal point in mm
-        # need to invert(-) longitude axis to match the direction on image with the direction on virtual sphere
-        U = R * torch.cos(-lon)
-        V = R * torch.sin(-lon)
+        U = R * torch.cos(lon)
+        V = R * torch.sin(lon)
         
         # u, v denote pixel coordinates in fisheye image
         u = U / self.d + self.u0
@@ -225,7 +224,7 @@ class FisheyeUtills:
         corners = torch.mm(R,corners) + center
         return corners
     
-    def corners2fov_and_lon_rot(self, center, corners):
+    def corners2fov(self, center, corners):
         '''
         calculate fov of tangent patch and longitude rotation angle
         '''
@@ -236,10 +235,10 @@ class FisheyeUtills:
         fov = 2 * (np.pi/2 - torch.min(self.move2pole(lon[1:], lat[1:], lon[0], lat[0])[1]))
         
         # calculate longitude rotation angle to make image upright
-        lon_rot = np.pi - lon[0]
-        return fov, lon_rot
+        # lon_rot = np.pi - lon[0]
+        return fov
     
-    def patch_of_sphere(self, height, width, fov, lon_rot, center):
+    def patch_of_sphere(self, height, width, fov, center):
         '''
         make patch sized 'height x width' that each pixel of which contains
         spherical(geographic) coordinates of virtual sphere
@@ -255,18 +254,22 @@ class FisheyeUtills:
         f = self.fov2f(d * np.sqrt(np.square(u0)+np.square(v0)), fov.numpy(), k=1)
         
         # u, v denote pixel coordinates in tangent image
-        u, v = torch.meshgrid(torch.arange(height), torch.arange(width))#, indexing='ij')
+        u, v = torch.meshgrid(torch.arange(height), torch.arange(width), indexing='ij')
         
         # U, V denote displacement from principal point in mm
         U = d * (u - u0)
         V = d * (v - v0)
         
-        # spherical coordinate of virtual sphere whose pole is set as bbox center
-        rotated_lon = torch.atan2(V, U) - lon_rot
-        rotated_lat = np.pi/2 - torch.atan2(torch.sqrt(U.square()+V.square()),f)
-        
         # calculate spherical coordinate of center point
         lon_c, lat_c = self.fisheye2sphere(center[0], center[1])
+        
+        # calculate longitude rotation angle to make image upright
+        lon_rot = np.pi - lon_c
+        
+        # spherical coordinate of virtual sphere whose pole is set as bbox center
+        # need to invert(-) longitude axis to match the direction on image with the direction on virtual sphere
+        rotated_lon = - torch.atan2(V, U) - lon_rot
+        rotated_lat = np.pi/2 - torch.atan2(torch.sqrt(U.square()+V.square()),f)
         
         # spherical coordinate of virtual sphere
         lon, lat = self.move2pole(rotated_lon, rotated_lat, lon_c + np.pi, lat_c)
@@ -292,11 +295,11 @@ class FisheyeUtills:
         plt.tight_layout()
     
     def get_tangent_patch(self, uvwha,
-                                visualize=False, 
-                                detectnet=False, 
-                                height=None, 
-                                width=None, 
-                                scale=None):
+                          visualize=False, 
+                          detectnet=False, 
+                          height=None, 
+                          width=None, 
+                          scale=None):
         '''
         compute tangent image patch form uvwha bboxes
         uvwha.shape     : [N, 5(uvwha)] 
@@ -326,10 +329,10 @@ class FisheyeUtills:
             corners = self.uvwha2corners(u, v, w, h, a)
             
             # fov and longitude rotation
-            fov, lon_rot = self.corners2fov_and_lon_rot(center, corners)
+            fov = self.corners2fov(center, corners)
             
             # spherical(geographic) coordinates of virtual sphere
-            lon, lat = self.patch_of_sphere(height, width, fov, lon_rot, center)
+            lon, lat = self.patch_of_sphere(height, width, fov, center)
             
             if detectnet:
                 sphericals.append(torch.stack((lon, lat), dim=0))
@@ -355,4 +358,3 @@ class FisheyeUtills:
             return patches, sphericals, k_values
         
         return patches
-        
