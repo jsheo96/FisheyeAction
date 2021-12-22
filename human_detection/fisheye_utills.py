@@ -254,7 +254,7 @@ class FisheyeUtills:
         f = self.fov2f(d * np.sqrt(np.square(u0)+np.square(v0)), fov.numpy(), k=1)
         
         # u, v denote pixel coordinates in tangent image
-        u, v = torch.meshgrid(torch.arange(height), torch.arange(width), indexing='ij')
+        u, v = torch.meshgrid(torch.arange(height), torch.arange(width))#, indexing='ij')
         
         # U, V denote displacement from principal point in mm
         U = d * (u - u0)

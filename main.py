@@ -28,18 +28,23 @@ if __name__ == '__main__':
                 continue
             path = os.path.join(data_folder, fn)
             frame = cv2.imread(path)
-            patches, k_values = human_detector.detect(frame)
             start = time.time()
-            for patch,k_value in zip(patches, k_values):
+            patches, k_values = human_detector.detect(frame)
+            print('elapsed time to process: {}'.format(time.time()-start))
+
+            for patch, k_value in zip(patches, k_values):
+                # patch is RGB image in the range of (0,1)
+
                 patch = patch.permute(1,2,0).cpu().numpy()
                 k_value = k_value.unsqueeze(0)
+                patch *= patch * 255
                 pose = pose_estimator.forward(patch, k_value)
-                #patch = (patch * 255).astype(np.uint8)
-                ##tmpimg = pose_estimator.visualize(patch, pose)
-                #print(tmpimg.dtype,tmpimg.shape)
-                #cv2.imshow('',tmpimg)
-                #cv2.waitKey()
-            print('elapsed time to process: {}'.format(time.time()-start))
+
+                patch = cv2.cvtColor(patch, cv2.COLOR_RGB2BGR)
+                patch = np.ascontiguousarray(patch, dtype=np.uint8)
+                tmpimg = pose_estimator.visualize(patch, pose)
+                cv2.imshow('',tmpimg)
+                cv2.waitKey()
 
 
 

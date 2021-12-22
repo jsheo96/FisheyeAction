@@ -204,9 +204,11 @@ if __name__ == '__main__':
             # frame = cv2.resize(frame, (256, 256))
             k_value = torch.tensor([3000])
             float_frame = frame.astype(np.float32)
+            float_frame = cv2.cvtColor(float_frame, cv2.COLOR_BGR2RGB)
+
             # poses, vis_kps, output_pose_2d_list = pose_estimator.forward(frame)
+
             poses = pose_estimator.forward(float_frame, k_value)
-            print(poses)
             vis_img = pose_estimator.visualize(frame, poses)
             cv2.imshow('', vis_img)
             cv2.waitKey()
