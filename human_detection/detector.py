@@ -14,7 +14,7 @@ class DetectNet:
         img = Image.fromarray(img)
         detections = self.model.detect_one(pil_img=img,
                                       visualize=False,
-                                      input_size=1024,
+                                      input_size=1024,#1024,
                                       conf_thres=0.4,
                                       test_aug=None)
         if detections.shape[0] > 0:

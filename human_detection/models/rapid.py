@@ -6,7 +6,7 @@ import torchvision.transforms.functional as tvf
 
 from human_detection.utils.iou_mask import iou_mask, iou_rle
 import human_detection.models.backbones
-import human_detection.models.lossesSS
+import human_detection.models.losses
 
 class RAPiD(nn.Module):
     def __init__(self, backbone='dark53', **kwargs):
