@@ -63,7 +63,6 @@ class PoseEstimatorV2:
         return pose_3d
 
     def visualize(self, image, pose):
-
         # tmpimg = image[0].cpu().numpy()
         # tmpimg = tmpimg * np.array(cfg.pixel_std).reshape(3, 1, 1) + np.array(cfg.pixel_mean).reshape(3, 1, 1)
         # tmpimg = tmpimg.astype(np.uint8)
@@ -78,7 +77,6 @@ class PoseEstimatorV2:
         vis_kps[0, :] = pose[:, 0]
         vis_kps[1, :] = pose[:, 1]
         vis_kps[2, :] = 1
-
         tmpimg = vis_keypoints(image, vis_kps, cfg.skeleton)
         return tmpimg
 
@@ -205,9 +203,9 @@ if __name__ == '__main__':
             # TODO: feed bounding box of a person instead of a full image.
             # frame = cv2.resize(frame, (256, 256))
             k_value = torch.tensor([3000])
-            frame = frame.astype(np.float32)
+            float_frame = frame.astype(np.float32)
             # poses, vis_kps, output_pose_2d_list = pose_estimator.forward(frame)
-            poses = pose_estimator.forward(frame, k_value)
+            poses = pose_estimator.forward(float_frame, k_value)
             print(poses)
             vis_img = pose_estimator.visualize(frame, poses)
             cv2.imshow('', vis_img)
