@@ -6,8 +6,10 @@ from human_detection.fisheye_utills import FisheyeUtills as FU
 class DetectNet:
     def __init__(self, use_cuda=True):
         self.model = Detector(model_name='rapid',
-                         weights_path='/Data/FisheyeAction/human_detection/weights/pL1_MWHB1024_Mar11_4000.ckpt',
-                         use_cuda=use_cuda)
+                              backbone='yolov5n',
+                              # weights_path='/Data/FisheyeAction/human_detection/weights/pL1_MWHB1024_Mar11_4000.ckpt',
+                              weights_path='/Data/FisheyeAction/human_detection/weights/rapid_pL1_yolov5n_CP608_Dec24_6000.ckpt',
+                              use_cuda=use_cuda)
 
     def detect(self, img):
         img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)

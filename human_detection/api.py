@@ -29,7 +29,8 @@ class Detector():
             return
         if model_name == 'rapid':
             from human_detection.models.rapid import RAPiD
-            model = RAPiD(backbone='dark53')
+            # model = RAPiD(backbone='dark53')
+            model = RAPiD(backbone=kwargs.get('backbone','dark53'))
         elif model_name == 'rapid_export': # testing-only version
             from human_detection.models.rapid_export import RAPiD
             model = RAPiD()
