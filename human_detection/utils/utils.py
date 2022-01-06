@@ -1,3 +1,4 @@
+import cv2
 from PIL import Image
 import random
 import torch
@@ -37,7 +38,7 @@ def normalize_bbox(xywha, w, h, max_angle=1):
     
     return xywha
 
-
+import time
 def rect_to_square(img, labels, target_size, pad_value=0, aug=False):
     '''
     Pre-processing during training and testing
@@ -52,14 +53,17 @@ def rect_to_square(img, labels, target_size, pad_value=0, aug=False):
         pad_value: int
         aug: bool
     '''
-    assert isinstance(img, Image.Image)
-    ori_h, ori_w = img.height, img.width
+    # assert isinstance(img, Image.Image)
+    # ori_h, ori_w = img.height, img.width
+    ori_h, ori_w = img.shape[0], img.shape[1]
 
     # resize to target input size (usually smaller)
     resize_scale = target_size / max(ori_w,ori_h)
     # unpad_w, unpad_h = target_size * w / max(w,h), target_size * h / max(w,h)
     unpad_w, unpad_h = int(ori_w*resize_scale), int(ori_h*resize_scale)
-    img = transforms.functional.resize(img, (unpad_h,unpad_w))
+
+    # img = transforms.functional.resize(img, (unpad_h,unpad_w))
+    img = cv2.resize(img, (unpad_w, unpad_h))
 
     # pad to square
     if aug:
@@ -72,6 +76,7 @@ def rect_to_square(img, labels, target_size, pad_value=0, aug=False):
     right = target_size - unpad_w - left
     bottom = target_size - unpad_h - top
 
+    img = transforms.functional.to_tensor(img)
     img = transforms.functional.pad(img, padding=(left,top,right,bottom), fill=0)
     # record the padding info
     img_tl = (left, top) # start of the true image

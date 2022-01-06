@@ -102,7 +102,6 @@ class RootNet(nn.Module):
             if isinstance(m, nn.Conv2d):
                 nn.init.normal_(m.weight, std=0.001)
                 nn.init.constant_(m.bias, 0)
-
 class ResPoseNet(nn.Module):
     def __init__(self, backbone, root):
         super(ResPoseNet, self).__init__()

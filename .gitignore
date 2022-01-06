@@ -38,3 +38,4 @@ pose_estimation/weights/*.tar
 # demo files
 human_detection/demo
 demo/output
+experiments/*

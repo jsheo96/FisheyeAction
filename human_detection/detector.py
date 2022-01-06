@@ -2,7 +2,7 @@ import cv2
 from PIL import Image
 from human_detection.api import Detector
 from human_detection.fisheye_utills import FisheyeUtills as FU
-
+import time
 class DetectNet:
     def __init__(self, use_cuda=True):
         self.model = Detector(model_name='rapid',
@@ -13,10 +13,9 @@ class DetectNet:
 
     def detect(self, img):
         img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
-        img = Image.fromarray(img)
         detections = self.model.detect_one(pil_img=img,
                                       visualize=False,
-                                      input_size=1024,#1024,
+                                      input_size=608,#1024,
                                       conf_thres=0.4,
                                       test_aug=None)
         if detections.shape[0] > 0:

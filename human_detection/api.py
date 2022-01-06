@@ -1,13 +1,14 @@
+import cv2
 import numpy as np
 from PIL import Image
 import matplotlib.pyplot as plt
 from tqdm import tqdm
-
 import torch
 import torchvision.transforms.functional as tvf
 
 from human_detection.utils import visualization, dataloader, utils
-
+from torchvision import transforms
+import time
 class Detector():
     '''
     Wrapper of image object detectors.
@@ -67,8 +68,11 @@ class Detector():
                 default: False
         '''
         assert 'img_path' in kwargs or 'pil_img' in kwargs
-        img = kwargs.pop('pil_img', None) or Image.open(kwargs['img_path'])
-
+        if 'pil_img' in kwargs.keys():
+            img = kwargs.pop('pil_img')
+        else:
+            cv2.imread(kwargs['img_path'])[:, :, ::-1]
+        # img = kwargs.pop('pil_img', None) or cv2.imread(kwargs['img_path'])[:,:,::-1]
         detections = self._predict_pil(img, **kwargs)
 
         if kwargs.get('return_img', False):
@@ -122,19 +126,22 @@ class Detector():
         '''
         input_size = kwargs.get('input_size', self.input_size)
         conf_thres = kwargs.get('conf_thres', self.conf_thres)
-        assert isinstance(pil_img, Image.Image), 'input must be a PIL.Image'
+        # assert isinstance(pil_img, Image.Image), 'input must be a PIL.Image'
         assert input_size is not None, 'Please specify the input resolution'
         assert conf_thres is not None, 'Please specify the confidence threshold'
 
         # pad to square
         input_img, _, pad_info = utils.rect_to_square(pil_img, None, input_size, 0)
 
-        input_ori = tvf.to_tensor(input_img)
-        input_ = input_ori.unsqueeze(0)
+        # input_img = tvf.to_tensor(input_img)
+        # totensor = transforms.ToTensor()
+        # input_img = totensor(input_img)
+        input_ = input_img.unsqueeze(0)
 
         assert input_.dim() == 4
         device = next(self.model.parameters()).device
         input_ = input_.to(device=device)
+
         with torch.no_grad():
             dts = self.model(input_).cpu()
 
@@ -144,6 +151,7 @@ class Detector():
         if len(dts) > 1000:
             _, idx = torch.topk(dts[:,5], k=1000)
             dts = dts[idx, :]
+
         if kwargs.get('debug', False):
             np_img = np.array(input_img)
             visualization.draw_dt_on_np(np_img, dts)

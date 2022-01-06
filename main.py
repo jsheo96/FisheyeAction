@@ -30,22 +30,25 @@ if __name__ == '__main__':
             frame = cv2.imread(path)
             start = time.time()
             patches, k_values = human_detector.detect(frame)
-            print('elapsed time to process: {}'.format(time.time()-start))
 
+
+            # print('elapsed time to process: {}'.format(time.time() - start))
             for patch, k_value in zip(patches, k_values):
                 # patch is RGB image in the range of (0,1)
 
-                patch = patch.permute(1,2,0).cpu().numpy()
+                # patch = patch.permute(1,2,0).cpu().numpy()
                 k_value = k_value.unsqueeze(0)
-                patch *= patch * 255
+                patch *= 255
+
                 pose = pose_estimator.forward(patch, k_value)
 
+                patch = patch.permute(1, 2, 0).cpu().numpy()
                 patch = cv2.cvtColor(patch, cv2.COLOR_RGB2BGR)
                 patch = np.ascontiguousarray(patch, dtype=np.uint8)
                 tmpimg = pose_estimator.visualize(patch, pose)
                 cv2.imshow('',tmpimg)
                 cv2.waitKey()
 
-
+            print((time.time() - start))
 
 

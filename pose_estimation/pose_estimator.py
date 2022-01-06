@@ -21,8 +21,10 @@ class PoseEstimatorV2:
         '''
         self.pose_net = get_mobile_human_pose_net()
         self.root_net = get_root_net()
-        self.transform = transforms.Compose(
-            [transforms.ToTensor(), transforms.Normalize(mean=cfg.pixel_mean, std=cfg.pixel_std)])
+        self.transform = transforms.Normalize(mean=cfg.pixel_mean, std=cfg.pixel_std)#transforms.Compose(
+            # [transforms.ToTensor(), transforms.Normalize(mean=cfg.pixel_mean, std=cfg.pixel_std)])
+        # self.transform = transforms.Compose([transforms.ToTensor(),
+        #                                      transforms.Normalize(mean=cfg.pixel_mean, std=cfg.pixel_std)])
         self.use_cuda = use_cuda
 
     def forward(self, image_patch, k_value):
@@ -45,8 +47,8 @@ class PoseEstimatorV2:
                                 x,y is within 0~255 which height/width of image_patch
                                 z is depth of human detected in mm
         '''
-        assert image_patch.shape == (256, 256, 3), 'image_patch shape is not equal to (256, 256, 3). Got {}'.format(image_patch.shape)
-        assert image_patch.dtype == np.float32, 'image_patch dtype must be np.float32. Got {}'.format(image_patch.dtype)
+        # assert image_patch.shape == (256, 256, 3), 'image_patch shape is not equal to (256, 256, 3). Got {}'.format(image_patch.shape)
+        assert image_patch.dtype == torch.float32, 'image_patch dtype must be np.float32. Got {}'.format(image_patch.dtype)
         with torch.no_grad():
             image_patch = self.transform(image_patch)
             image_patch = image_patch.cuda() if torch.cuda.is_available() and self.use_cuda else image_patch.cpu()

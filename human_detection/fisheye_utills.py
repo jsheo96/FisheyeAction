@@ -5,7 +5,7 @@ import numpy as np
 from matplotlib import pyplot as plt
 from torch.nn import functional as F
 from torchvision import transforms as transforms
-
+import time
 
 class FisheyeUtills:
     def __init__(self, img = None,
@@ -41,7 +41,7 @@ class FisheyeUtills:
         imgs.shape : [N, C, H, W]
         '''
         transform = transforms.Compose([transforms.ToTensor()])
-        transform_img = transform(img)
+        transform_img = transform(img).cuda() if torch.cuda.is_available() else transform(img)
         imgs = torch.unsqueeze(transform_img, dim=0)
         return imgs
     
@@ -318,39 +318,49 @@ class FisheyeUtills:
         patches = []
         sphericals = []
         k_values = []
-        
+        import time
+        print(len(uvwha))
         for u, v, w, h, a in uvwha:
+
             # scale up  width and height
             w = w*scale
             h = h*scale
             
             # center and corner coordinates on fisheye image
             center = torch.tensor([[u],[v]])
+
+
             corners = self.uvwha2corners(u, v, w, h, a)
             
             # fov and longitude rotation
             fov = self.corners2fov(center, corners)
-            
+
             # spherical(geographic) coordinates of virtual sphere
+
             lon, lat = self.patch_of_sphere(height, width, fov, center)
-            
+            if torch.cuda.is_available():
+                lon = lon.cuda()
+                lat = lat.cuda()
+
             if detectnet:
                 sphericals.append(torch.stack((lon, lat), dim=0))
-                k = self.cam_height * np.tan(np.pi/2 - lat[int(height/2),int(width/2)])
+                k = self.cam_height * torch.tan(np.pi/2 - lat[int(height/2),int(width/2)])
                 k_values.append(k)
-            
+
             # fisheye image pixel coordinate
             grid_u, grid_v = self.sphere2fisheye(lon, lat)
-            
+
             # scale each u, v axis of grid to [-1, 1]
             scaled_u = (grid_u - self.u0) / self.u0
             scaled_v = (grid_v - self.v0) / self.v0
             grid = torch.stack((scaled_u, scaled_v), dim=-1).unsqueeze(0)
-            
+
             # get tangent patch
             patch = F.grid_sample(self.imgs, grid, mode='bilinear', align_corners=True).squeeze(0)
+
+
+
             patches.append(patch)
-        
         if visualize:
             self.visualize_patches(patches, k_values, detectnet=detectnet)
         
