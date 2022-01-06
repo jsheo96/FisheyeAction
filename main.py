@@ -12,6 +12,14 @@ sys.path.insert(0, 'human_detection')
 from human_detection.detector import DetectNet
 import torch
 import time
+from torchvision import transforms
+def decode(patch):
+    transform = transforms.Compose([transforms.Normalize(mean=(0.,0.,0.), std=(1/0.229, 1/0.224, 1/0.225)),
+                                transforms.Normalize(mean=(-0.485, -0.456, -0.406), std=(1.,1.,1.))])
+    patch = transform(patch)
+    patch = patch.permute(1, 2, 0).cpu().numpy()
+    return patch
+
 if __name__ == '__main__':
 
     human_detector = DetectNet(use_cuda=True)
@@ -22,6 +30,7 @@ if __name__ == '__main__':
     # data_folder = '/Data/3D_pose_estimation_dataset/MuCo/data/unaugmented_set/1'
     # data_folder = '/Data/3D_pose_estimation_dataset/MuPoTS/data/MultiPersonTestSet/TS1'
     # data_folder = '/Data/3D_pose_estimation_dataset/RAPID'
+    vis = True
     if __name__ == '__main__':
         for fn in sorted(os.listdir(data_folder)):
             if 'jpg' not in fn and 'png' not in fn:
@@ -31,24 +40,30 @@ if __name__ == '__main__':
             start = time.time()
             patches, k_values = human_detector.detect(frame)
 
-
-            # print('elapsed time to process: {}'.format(time.time() - start))
-            for patch, k_value in zip(patches, k_values):
-                # patch is RGB image in the range of (0,1)
-
-                # patch = patch.permute(1,2,0).cpu().numpy()
-                k_value = k_value.unsqueeze(0)
-                patch *= 255
-
-                pose = pose_estimator.forward(patch, k_value)
-
-                patch = patch.permute(1, 2, 0).cpu().numpy()
+            patches = torch.stack(patches, 0).cuda()
+            patches *= 255
+            patches = pose_estimator.transform(patches)
+            k_values = torch.stack(k_values, 0).unsqueeze(-1).cuda()
+            pose = pose_estimator.batch_forward(patches, k_values)
+            if vis:
+                patch = patches[0]
+                patch = decode(patch)
                 patch = cv2.cvtColor(patch, cv2.COLOR_RGB2BGR)
                 patch = np.ascontiguousarray(patch, dtype=np.uint8)
+                pose = pose[0].cpu().numpy()
                 tmpimg = pose_estimator.visualize(patch, pose)
-                cv2.imshow('',tmpimg)
+                cv2.imshow('', tmpimg)
                 cv2.waitKey()
 
-            print((time.time() - start))
+            # for patch, k_value in zip(patches, k_values):
+                # patch is RGB image in the range of (0,1)
+                # k_value = k_value.unsqueeze(0)
+                # patch *= 255
+                # pose = pose_estimator.forward(patch, k_value)
+
+
+            print(time.time()-start)
+
+
 
 

@@ -60,7 +60,7 @@ def soft_argmax(heatmaps, joint_num):
     coord_out = torch.cat((accu_x, accu_y, accu_z), dim=2)
 
     return coord_out
-
+import time
 class CustomNet(nn.Module):
     def __init__(self, backbone, joint_num):
         super(CustomNet, self).__init__()

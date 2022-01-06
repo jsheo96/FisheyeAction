@@ -48,7 +48,7 @@ class PoseEstimatorV2:
                                 z is depth of human detected in mm
         '''
         # assert image_patch.shape == (256, 256, 3), 'image_patch shape is not equal to (256, 256, 3). Got {}'.format(image_patch.shape)
-        assert image_patch.dtype == torch.float32, 'image_patch dtype must be np.float32. Got {}'.format(image_patch.dtype)
+        assert image_patch.dtype == torch.float32, 'image_patch dtype must be torch.float32. Got {}'.format(image_patch.dtype)
         with torch.no_grad():
             image_patch = self.transform(image_patch)
             image_patch = image_patch.cuda() if torch.cuda.is_available() and self.use_cuda else image_patch.cpu()
@@ -57,11 +57,28 @@ class PoseEstimatorV2:
             if not isinstance(k_value, torch.Tensor):
                 k_value = torch.tensor(k_value)
             root = self.root_net(image_patch, k_value)
+            pose_3d = pose[0]
+            factor = cfg.input_shape[0] / cfg.output_shape[0]
+            pose_3d[:,:2] = pose_3d[:,:2] * factor
+            pose_3d[:, 2] = pose_3d[:,2]/(cfg.depth_dim / cfg.bbox_3d_shape[0]) + (-1*cfg.bbox_3d_shape[0]/2+root[0,2].item())
 
-            pose_3d = pose[0].cpu().numpy()
-            pose_3d[:, 0] = pose_3d[:, 0] / cfg.output_shape[1] * cfg.input_shape[1]
-            pose_3d[:, 1] = pose_3d[:, 1] / cfg.output_shape[0] * cfg.input_shape[0]
-            pose_3d[:, 2] = (pose_3d[:, 2] / cfg.depth_dim * 2 - 1) * (cfg.bbox_3d_shape[0] / 2) + root[0, 2].item()
+        return pose_3d
+
+    def batch_forward(self, image_patch, k_value):
+        '''
+        esitmate pose for several images (batch)
+        :param image_patch: batch number of normalized cuda images
+        :param k_value: batch number k value tensor
+        :return: batch number of pose_3d (tensor)
+        '''
+        with torch.no_grad():
+            pose = self.pose_net(image_patch)
+            root = self.root_net(image_patch, k_value)
+            pose_3d = pose
+            factor = cfg.input_shape[0] / cfg.output_shape[0]
+            pose_3d[:,:,:2] = pose_3d[:,:,:2] * factor
+            pose_3d[:,:, 2] = pose_3d[:,:,2]/(cfg.depth_dim / cfg.bbox_3d_shape[0]) + root[:,2].unsqueeze(-1) - cfg.bbox_3d_shape[0]/2
+
         return pose_3d
 
     def visualize(self, image, pose):

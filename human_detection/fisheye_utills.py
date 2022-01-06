@@ -319,7 +319,6 @@ class FisheyeUtills:
         sphericals = []
         k_values = []
         import time
-        print(len(uvwha))
         for u, v, w, h, a in uvwha:
 
             # scale up  width and height
