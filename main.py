@@ -45,6 +45,7 @@ if __name__ == '__main__':
             patches = pose_estimator.transform(patches)
             k_values = torch.stack(k_values, 0).unsqueeze(-1).cuda()
             pose = pose_estimator.batch_forward(patches, k_values)
+            # print(time.time()-start)
             if vis:
                 patch = patches[0]
                 patch = decode(patch)
@@ -62,7 +63,6 @@ if __name__ == '__main__':
                 # pose = pose_estimator.forward(patch, k_value)
 
 
-            print(time.time()-start)
 
 
 
