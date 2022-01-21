@@ -1,12 +1,13 @@
 import os
+import math
 import numpy as np
 import torch
 import torch.nn as nn
 import torchvision.transforms.functional as tvf
 
-from utils.iou_mask import iou_mask, iou_rle
-import models.backbones
-import models.losses
+from human_detection.utils.iou_mask import iou_mask, iou_rle
+import human_detection.models.backbones
+import human_detection.models.losses
 
 
 class RAPiD(nn.Module):
@@ -23,8 +24,9 @@ class RAPiD(nn.Module):
         self.index_L = torch.Tensor(indices[0]).long()
         self.index_M = torch.Tensor(indices[1]).long()
         self.index_S = torch.Tensor(indices[2]).long()
+
         if backbone == 'dark53':
-            self.backbone = models.backbones.Darknet53()
+            self.backbone = human_detection.models.backbones.Darknet53()
             print("Using backbone Darknet-53. Loading ImageNet weights....")
             backbone_imgnet_path = './weights/dark53_imgnet.pth'
             if os.path.exists(backbone_imgnet_path):
@@ -45,25 +47,38 @@ class RAPiD(nn.Module):
             backbone_yaml_path = 'human_detection/weights/yolov5n.yaml'
             if os.path.exists(backbone_coco_path):
                 pretrained = torch.load(backbone_coco_path)
-                self.backbone = models.backbones.yolov5(backbone_yaml_path)
-                csd = pretrained  # checkpoint state_dict as FP32
+                self.backbone = models.backbones.yolov5(pretrained.yaml)
+                csd = pretrained.state_dict()  # checkpoint state_dict as FP32
                 csd = {k: v for k, v in csd.items() if k in self.backbone.state_dict() and v.shape == self.backbone.state_dict()[k].shape}  # intersect
                 self.backbone.load_state_dict(csd, strict=False)  # load
-                # torch.save(self.backbone.state_dict(), './weights/yolov5n_backbone.pth')
+                #  torch.save(self.backbone, './weights/yolov5n_backbone.pth')
             else:
                 print('Warning: no COCO-pretrained weights found.',
                       'Please check https://github.com/ultralytics/yolov5/releases for it.')
         elif backbone == 'yolov5s':
             print("Using backbone yolov5s. Loading COCO pre-trained weights...")
-            backbone_coco_path = './weights/yolov5s_backbone.pth'  # yolov5n6.pt / yolov5n6.pt / yolov5s.pt
-            backbone_yaml_path = './weights/yolov5s.yaml'
+            backbone_coco_path = 'human_detection/weights/yolov5s_backbone.pth'  # yolov5n6.pt / yolov5n6.pt / yolov5s.pt
+            backbone_yaml_path = 'human_detection/weights/yolov5s.yaml'
             if os.path.exists(backbone_coco_path):
                 pretrained = torch.load(backbone_coco_path)
-                self.backbone = models.backbones.yolov5(pretrained['model'].yaml)
-                csd = pretrained  # checkpoint state_dict as FP32
+                self.backbone = models.backbones.yolov5(pretrained.yaml)
+                csd = pretrained.state_dict()  # checkpoint state_dict as FP32
                 csd = {k: v for k, v in csd.items() if k in self.backbone.state_dict() and v.shape == self.backbone.state_dict()[k].shape}  # intersect
                 self.backbone.load_state_dict(csd, strict=False)  # load
-                # torch.save(self.backbone.state_dict(), './weights/yolov5s_backbone.pth')
+                #  torch.save(self.backbone, './weights/yolov5s_backbone.pth')
+            else:
+                print('Warning: no COCO-pretrained weights found.',
+                      'Please check https://github.com/ultralytics/yolov5/releases for it.')
+        elif backbone == 'yolov5x':
+            print("Using backbone yolov5x6. Loading COCO pre-trained weights...")
+            backbone_coco_path = 'human_detection/weights/yolov5x_backbone.pth'
+            if os.path.exists(backbone_coco_path):
+                pretrained = torch.load(backbone_coco_path)
+                self.backbone = models.backbones.yolov5(pretrained.yaml)
+                csd = pretrained.state_dict()  # checkpoint state_dict as FP32
+                csd = {k: v for k, v in csd.items() if k in self.backbone.state_dict() and v.shape == self.backbone.state_dict()[k].shape}  # intersect
+                self.backbone.load_state_dict(csd, strict=False)  # load
+                #  torch.save(self.backbone, './weights/yolov5x_backbone.pth')
             else:
                 print('Warning: no COCO-pretrained weights found.',
                       'Please check https://github.com/ultralytics/yolov5/releases for it.')
@@ -78,14 +93,13 @@ class RAPiD(nn.Module):
             chS, chM, chL = 128, 256, 512
         elif backbone in {'res50','res101'}:
             chS, chM, chL = 512, 1024, 2048
-        elif backbone == 'yolov5n':
-            chS, chM, chL = 64, 64, 128
-        elif backbone == 'yolov5s':
-            chS, chM, chL = 128, 128, 256
+        elif backbone in {'yolov5n', 'yolov5s', 'yolov5x'}:
+            chS, chM, chL = np.array(np.ceil(np.array((256, 512, 1024)) * pretrained.yaml['width_multiple'] /8)*8, dtype=np.int32)
         
-        self.branch_L = models.backbones.YOLOBranch(chL, 18)
-        self.branch_M = models.backbones.YOLOBranch(chM, 18, prev_ch=(chL//2,chM//2))
-        self.branch_S = models.backbones.YOLOBranch(chS, 18, prev_ch=(chM//2,chS//2))
+        
+        self.branch_L = human_detection.models.backbones.YOLOBranch(chL, 18)
+        self.branch_M = human_detection.models.backbones.YOLOBranch(chM, 18, prev_ch=(chL//2,chM//2))
+        self.branch_S = human_detection.models.backbones.YOLOBranch(chS, 18, prev_ch=(chM//2,chS//2))
         
         self.pred_L = PredLayer(self.anchors_all, self.index_L, **kwargs)
         self.pred_M = PredLayer(self.anchors_all, self.index_M, **kwargs)
@@ -150,9 +164,9 @@ class PredLayer(nn.Module):
         self.bce_loss = nn.BCELoss(reduction='sum')
         loss_angle = kwargs.get('loss_angle', 'period_L1')
         if loss_angle == 'period_L1':
-            self.loss4angle = models.losses.period_L1(reduction='sum')
+            self.loss4angle = human_detection.models.losses.period_L1(reduction='sum')
         elif loss_angle == 'period_L2':
-            self.loss4angle = models.losses.period_L2(reduction='sum')
+            self.loss4angle = human_detection.models.losses.period_L2(reduction='sum')
         elif loss_angle == 'none':
             # inference
             self.loss4angle = None
@@ -250,9 +264,9 @@ class PredLayer(nn.Module):
         ti_all = tx_all.long()
         tj_all = ty_all.long()
 
-        norm_anch_wh = torch.div(anchors[:,0:2], img_hw.to(device=device)) # normalized
+        norm_anch_wh = torch.div(anchors[:,0:2], img_hw) # normalized
         norm_anch_00wha = self.anch_00wha_all.clone().to(device=device)
-        norm_anch_00wha[:,2:4] = torch.div(norm_anch_00wha[:,2:4], img_hw.to(device=device)) # normalized
+        norm_anch_00wha[:,2:4] = torch.div(norm_anch_00wha[:,2:4], img_hw) # normalized
 
         # traverse all images in a batch
         valid_gt_num = 0

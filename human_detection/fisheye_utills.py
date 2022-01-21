@@ -1,11 +1,9 @@
 # dependancies are as follows
-import cv2
 import torch
 import numpy as np
 from matplotlib import pyplot as plt
 from torch.nn import functional as F
 from torchvision import transforms as transforms
-import time
 
 class FisheyeUtills:
     def __init__(self, img = None,
@@ -50,7 +48,7 @@ class FisheyeUtills:
         calculate focal length from fov and distance to image edge
         based on PTGui 11 fisheye projection with fisheye factor k (https://wiki.panotools.org/Fisheye_Projection)
         R : distance from principal point to image edge in mm  
-        fov : fov angle in radians
+        fov : fov angle in radians [B]
         k = -1.0 : orthographic
         k = -0.5 : equisolid
         k =  0.0 : equidistant
@@ -90,7 +88,7 @@ class FisheyeUtills:
             Y = Y * depth
             Z = Z * depth
         
-        return torch.stack((X, Y, Z), dim=0)
+        return torch.stack((X, Y, Z), dim=-1)
     
     def cartesian2sphere(self, X, Y, Z):
         '''
@@ -98,10 +96,13 @@ class FisheyeUtills:
         '''
         lon = torch.atan2(Y, X)
         lat = torch.atan2(Z, torch.sqrt(X.square()+Y.square()))
-        return torch.stack((lon, lat), dim=0)
+        return torch.stack((lon, lat), dim=-1)
         
-    def fisheye2sphere(self, u, v, k=-0.5, cart=False):
+    def fisheye2sphere(self, uv, k=-0.5, cart=False):
         '''
+        input: uv.shape: [N, 2]
+        output: sphere.shape: [N, 2]
+
         convert fisheye image pixel coordinates to spherical(geographic) coordinates of the virtual sphere
         based on PTGui 11 fisheye projection with fisheye factor k (https://wiki.panotools.org/Fisheye_Projection)
         k = -1.0 : orthographic
@@ -110,17 +111,15 @@ class FisheyeUtills:
         k =  0.5 : stereographic
         k =  1.0 : rectilinear (perspective)
         '''
-        # if not torch.jit.isinstance(u, torch.Tensor):
-        if not isinstance(u, torch.Tensor):
-            u = torch.tensor(u)
-        # if not torch.jit.isinstance(v, torch.Tensor):
-        if not isinstance(v, torch.Tensor):
-            v = torch.tensor(v)
-        assert u.shape==v.shape
+        if not isinstance(uv, torch.Tensor):
+            uv = torch.tensor(uv)
             
         # U, V denote displacement from principal point in mm
-        U = (u - self.u0) * self.d
-        V = (v - self.v0) * self.d
+        uv0 = torch.tensor((self.u0, self.v0)).unsqueeze(0)
+        
+        UV = (uv - uv0) * self.d
+        V = UV[:, 1]
+        U = UV[:, 0]
         
         # lon, lat denote lognitude and latitue in virtual sphere
         lon = torch.atan2(V,U) 
@@ -136,10 +135,11 @@ class FisheyeUtills:
             raise ValueError(f'{k} is not valid value for fisheye projection')
         
         if cart:  # output cartesian coordinates
-            sphere = self.sphere2cartesian(lon, lat)
+            cartesian = self.sphere2cartesian(lon, lat)  # [N, 3]
+            return cartesian
         else:
-            sphere = torch.stack((lon, lat), dim=0)
-        return sphere
+            sphere = torch.stack((lon, lat), dim=-1)  # [N, 2]
+            return sphere
     
     def sphere2fisheye(self, lon, lat, k=-0.5):
         '''
@@ -168,31 +168,45 @@ class FisheyeUtills:
         # u, v denote pixel coordinates in fisheye image
         u = U / self.d + self.u0
         v = V / self.d + self.v0
-        return torch.stack((u, v), dim=0)
+        return torch.stack((u, v), dim=-1)
     
     def rotate_spherical(self, lon, lat, rot_axis, rot_angle, cart=False):
         '''
+        lon, lat: [B, N]
+        rot_axis: [B, 3]
+        rot_angle: [B]
         rotate spherical(geographic) coordinates following Rodrigues rotation formula
         '''
         # Rodrigues rotation formula
-        kx, ky, kz = rot_axis  # rotation axis   
-        K = torch.tensor([[0, -kz, ky],
-                  [kz, 0, -kx],
-                  [-ky, kx, 0]])
-        R = torch.eye(3) + torch.sin(rot_angle)*K + (1-torch.cos(rot_angle))*torch.mm(K,K)
+        kx, ky, kz = rot_axis.permute((1,0))  # rotation axis [B]
+        zeros_like_k = torch.zeros_like(kx)
+        K = torch.stack((torch.stack((zeros_like_k, kz, -ky), dim=1),  # [B, 3, 3]
+                         torch.stack((-kz, zeros_like_k, kx), dim=1),
+                         torch.stack((ky, -kx, zeros_like_k), dim=1)), dim=1)
+        eye = torch.eye(3).unsqueeze(0).repeat(kx.shape[0], 1, 1)  # [B, 3, 3]
 
-        XYZ = self.sphere2cartesian(lon, lat)
-        flat_XYZ = XYZ.view((3,-1))
-        XYZ = torch.matmul(R, flat_XYZ).view(XYZ.shape)
+        rot_angle = rot_angle.view((rot_angle.shape[0], 1, 1))
+        R = eye + torch.sin(rot_angle)*K + (1-torch.cos(rot_angle))*torch.bmm(K,K)
+
+        XYZ = self.sphere2cartesian(torch.flatten(lon), torch.flatten(lat))
+        XYZ = XYZ.view((kx.shape[0], -1, 3))  # [B, N, 3(x,y,z)]
+        XYZ = torch.bmm(XYZ, R)  # [B, N, 3]
         
         if not cart:
-            XYZ = self.cartesian2sphere(XYZ[0],XYZ[1],XYZ[2])
-        return XYZ
+            XYZ_flat = XYZ.view((-1, 3))
+            lonlat = self.cartesian2sphere(XYZ_flat[:, 0], XYZ_flat[:, 1], XYZ_flat[:, 2])  # [B*N, 2(lon, lat)]
+            lonlat = lonlat.view((kx.shape[0], -1, 2))  # [B, N, 2]
+            return lonlat
+        else:
+            return XYZ
 
     def move2pole(self, lon, lat, t_lon, t_lat, cart=False):
         '''
+        lon, lat: [B, N]
+        t_lon, t_lat: [B]
         rotate spherical coordinates for target point to be moved to pole
         '''
+        assert t_lon.shape == t_lat.shape
         # if not torch.jit.isinstance(t_lon, torch.Tensor):
         if not isinstance(t_lon, torch.Tensor):
             t_lon = torch.tensor(t_lon)
@@ -200,39 +214,46 @@ class FisheyeUtills:
         if not isinstance(t_lat, torch.Tensor):
             t_lat = torch.tensor(t_lat)
         
-        rot_axis = (torch.cos(t_lon+np.pi/2), torch.sin(t_lon+np.pi/2), 0)
-        rot_angle = t_lat-np.pi/2
+        rot_axis = torch.stack((torch.cos(t_lon+np.pi/2),  # [B, 3]
+                                torch.sin(t_lon+np.pi/2), 
+                                torch.zeros_like(t_lon)), dim=-1)
+        rot_angle = t_lat-np.pi/2  # [B]
         return self.rotate_spherical(lon, lat, rot_axis, rot_angle, cart=cart)
         
     
-    def uvwha2corners(self, u, v, w, h, a):
+    def uvwha2corners(self, uvwha):
         '''
         calculate corner coordinates from uvwha bbox information
+        uvwha.shape : [B, 5]
         ''' 
-        center = torch.tensor([[u],[v]])
-        corners = torch.tensor([[-h/2, -w/2],
-                                [-h/2, w/2],
-                                [h/2, -w/2],
-                                [h/2, w/2]]).t()
-        
+        assert uvwha.dim()==2, 'variable uvwha must contain batches'
+        hw = torch.flip(uvwha[:,2:4], dims=[1])  # [B, 2]
+        hw_sign = hw.clone().detach()
+        hw_sign[:,0] *= -1
+        corners = torch.stack((-hw/2, hw_sign/2, -hw_sign/2, hw/2), dim=1)  # [B, 4, 2]
+
         # rotate corners by given angle
-        cos_a = torch.cos(a * np.pi/180)
-        sin_a = torch.sin(a * np.pi/180)
-        R = torch.tensor([[cos_a, -sin_a],
-                          [sin_a, cos_a]])
+        cos_a = torch.cos(uvwha[:,4] * np.pi/180)
+        sin_a = torch.sin(uvwha[:,4] * np.pi/180)  # [B]
+        # rotation matric [B, 2, 2]
+        R = torch.stack((torch.stack((cos_a, sin_a), dim=1),
+                         torch.stack((-sin_a, cos_a), dim=1)), dim=1)
         
-        corners = torch.mm(R,corners) + center
+        center = uvwha[:,:2].unsqueeze(1)  # [B, 1, 2]
+        corners = torch.bmm(corners, R) + center
         return corners
     
     def corners2fov(self, center, corners):
         '''
         calculate fov of tangent patch and longitude rotation angle
         '''
-        center_and_corners = torch.cat((center,corners),dim=1)
-        lon, lat = self.fisheye2sphere(center_and_corners[0], center_and_corners[1])
-        
+        center_and_corners = torch.cat((center,corners),dim=1)  # [B, 5(center_and_corners), 2]
+        lonlat = self.fisheye2sphere(center_and_corners.view((-1, 2))).view((-1, 5, 2))
+        lon = lonlat[:, :, 0]  # [B, 5]
+        lat = lonlat[:, :, 1]  # [B, 5]
         # calculate maximum fov needed       
-        fov = 2 * (np.pi/2 - torch.min(self.move2pole(lon[1:], lat[1:], lon[0], lat[0])[1]))
+        moved_corners = self.move2pole(lon[:, 1:], lat[:, 1:], lon[:, 0], lat[:, 0])  # [B, 4, 2(lon, lat)]
+        fov = 2 * (-torch.min(moved_corners[:,:,1], dim=1).values + np.pi/2)
         
         # calculate longitude rotation angle to make image upright
         # lon_rot = np.pi - lon[0]
@@ -240,6 +261,8 @@ class FisheyeUtills:
     
     def patch_of_sphere(self, height, width, fov, center):
         '''
+        fov.shape: [B]
+        center.shape: [B, 2]
         make patch sized 'height x width' that each pixel of which contains
         spherical(geographic) coordinates of virtual sphere
         '''
@@ -251,30 +274,34 @@ class FisheyeUtills:
         v0 = (width-1)/2
         
         # calculate focal length correspond to patch width and height
-        f = self.fov2f(d * np.sqrt(np.square(u0)+np.square(v0)), fov.numpy(), k=1)
+        f = self.fov2f(d * np.sqrt(np.square(u0)+np.square(v0)), fov, k=1)  # [B]
         
         # u, v denote pixel coordinates in tangent image
-        u, v = torch.meshgrid(torch.arange(height), torch.arange(width))#, indexing='ij')
+        u, v = torch.meshgrid(torch.arange(height), torch.arange(width), indexing='ij')
+        u = u.unsqueeze(0).repeat(f.shape[0], 1, 1)  # [B, height, width]
+        v = v.unsqueeze(0).repeat(f.shape[0], 1, 1)  # [B, height, width]
         
         # U, V denote displacement from principal point in mm
-        U = d * (u - u0)
-        V = d * (v - v0)
+        U = d * (u - u0)  # [B, height, width]
+        V = d * (v - v0)  # [B, height, width]
         
         # calculate spherical coordinate of center point
-        lon_c, lat_c = self.fisheye2sphere(center[0], center[1])
+        lonlat_c = self.fisheye2sphere(center)  # [B, 2]
         
         # calculate longitude rotation angle to make image upright
-        lon_rot = np.pi - lon_c
+        lon_rot = np.pi - lonlat_c[:, 0]  # [B]
         
         # spherical coordinate of virtual sphere whose pole is set as bbox center
         # need to invert(-) longitude axis to match the direction on image with the direction on virtual sphere
-        rotated_lon = - torch.atan2(V, U) - lon_rot
-        rotated_lat = np.pi/2 - torch.atan2(torch.sqrt(U.square()+V.square()),f)
+        rotated_lon = - torch.atan2(V, U) - lon_rot.reshape((lon_rot.shape[0], 1, 1))  # [B, height, width]
+        rotated_lat = np.pi/2 - torch.atan2(torch.sqrt(U.square()+V.square()),f.reshape((f.shape[0], 1, 1)))  # [B, height, width]
         
         # spherical coordinate of virtual sphere
-        lon, lat = self.move2pole(rotated_lon, rotated_lat, lon_c + np.pi, lat_c)
+        lonlat = self.move2pole(rotated_lon.view((rotated_lon.shape[0], -1)), rotated_lat.view((rotated_lat.shape[0], -1)),
+                                lonlat_c[:, 0] + np.pi, lonlat_c[:, 1])
+        lonlat = lonlat.view((f.shape[0], height, width, 2))
         
-        return torch.stack((lon, lat),dim=0)
+        return lonlat
         
     def visualize_patches(self, patches, k_values, detectnet): 
         ncols = int(np.round(np.sqrt(len(patches))))
@@ -314,56 +341,95 @@ class FisheyeUtills:
             width = self.patch_width
         if scale is None:
             scale = self.bbox_scale
-        
-        patches = []
-        sphericals = []
-        k_values = []
-        import time
-        for u, v, w, h, a in uvwha:
 
+        if isinstance(uvwha, torch.Tensor):
             # scale up  width and height
-            w = w*scale
-            h = h*scale
+            uvwha[:,2] *= scale
+            uvwha[:,3] *= scale
             
             # center and corner coordinates on fisheye image
-            center = torch.tensor([[u],[v]])
-
-
-            corners = self.uvwha2corners(u, v, w, h, a)
-            
+            center = uvwha[:,:2]
+            corners = self.uvwha2corners(uvwha)
+            print('corners.shape:', corners.shape)
             # fov and longitude rotation
-            fov = self.corners2fov(center, corners)
+            fov = self.corners2fov(center.unsqueeze(1), corners)
+            print('fov.shape:', fov.shape)
 
             # spherical(geographic) coordinates of virtual sphere
-
-            lon, lat = self.patch_of_sphere(height, width, fov, center)
+            lonlat = self.patch_of_sphere(height, width, fov, center)  # [B, height, width, 2]
+            print('lonlat.shape', lonlat.shape)
+            
             if torch.cuda.is_available():
-                lon = lon.cuda()
-                lat = lat.cuda()
-
-            if detectnet:
-                sphericals.append(torch.stack((lon, lat), dim=0))
-                k = self.cam_height * torch.tan(np.pi/2 - lat[int(height/2),int(width/2)])
-                k_values.append(k)
+                lonlat = lonlat.cuda()
 
             # fisheye image pixel coordinate
-            grid_u, grid_v = self.sphere2fisheye(lon, lat)
+            grid = self.sphere2fisheye(lonlat[:,:,:,0], lonlat[:,:,:,1])  # [B, height, width, 2]
+            print('grid.shape:', grid.shape)
 
             # scale each u, v axis of grid to [-1, 1]
-            scaled_u = (grid_u - self.u0) / self.u0
-            scaled_v = (grid_v - self.v0) / self.v0
-            grid = torch.stack((scaled_u, scaled_v), dim=-1).unsqueeze(0)
+            grid[:,:,:,0] = (grid[:,:,:,0] - self.u0) / self.u0
+            grid[:,:,:,1] = (grid[:,:,:,1] - self.v0) / self.v0
 
             # get tangent patch
-            patch = F.grid_sample(self.imgs, grid, mode='bilinear', align_corners=True).squeeze(0)
+            patches = F.grid_sample(self.imgs.repeat(grid.shape[0], 1, 1, 1), grid, mode='bilinear', align_corners=True).squeeze(0)
+            print('patches.shape', patches.shape)
+
+            if visualize:
+                self.visualize_patches(patches, k_values, detectnet=detectnet)
+            
+            if detectnet:
+                sphericals = lonlat
+                k_values = self.cam_height * torch.tan(np.pi/2 - lonlat[:, int(height/2), int(width/2), 1])
+                return patches, sphericals, k_values
+            else:
+                return patches
+        else:
+            patches = []
+            sphericals = []
+            k_values = []
+            for u, v, w, h, a in uvwha:
+
+                # scale up  width and height
+                w = w*scale
+                h = h*scale
+                
+                # center and corner coordinates on fisheye image
+                center = torch.tensor([[u],[v]])
 
 
+                corners = self.uvwha2corners(u, v, w, h, a)
+                
+                # fov and longitude rotation
+                fov = self.corners2fov(center, corners)
 
-            patches.append(patch)
-        if visualize:
-            self.visualize_patches(patches, k_values, detectnet=detectnet)
-        
-        if detectnet:
-            return patches, sphericals, k_values
-        
-        return patches
+                # spherical(geographic) coordinates of virtual sphere
+
+                lon, lat = self.patch_of_sphere(height, width, fov, center)
+                if torch.cuda.is_available():
+                    lon = lon.cuda()
+                    lat = lat.cuda()
+
+                if detectnet:
+                    sphericals.append(torch.stack((lon, lat), dim=0))
+                    k = self.cam_height * torch.tan(np.pi/2 - lat[int(height/2),int(width/2)])
+                    k_values.append(k)
+
+                # fisheye image pixel coordinate
+                grid_u, grid_v = self.sphere2fisheye(lon, lat)
+
+                # scale each u, v axis of grid to [-1, 1]
+                scaled_u = (grid_u - self.u0) / self.u0
+                scaled_v = (grid_v - self.v0) / self.v0
+                grid = torch.stack((scaled_u, scaled_v), dim=-1).unsqueeze(0)
+
+                # get tangent patch
+                patch = F.grid_sample(self.imgs, grid, mode='bilinear', align_corners=True).squeeze(0)
+
+                patches.append(patch)
+            if visualize:
+                self.visualize_patches(patches, k_values, detectnet=detectnet)
+            
+            if detectnet:
+                return patches, sphericals, k_values
+            else:
+                return patches

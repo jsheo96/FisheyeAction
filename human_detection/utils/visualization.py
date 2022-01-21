@@ -46,14 +46,15 @@ def draw_dt_on_np(im, detections, print_dt=False, color=(255,0,0),
             cv2.putText(im, f'{int(a)}', (x,y), font, 1*text_size,
                         (255,255,255), font_bold, cv2.LINE_AA)
     if kwargs.get('show_count', True):
-        caption_w = int(im.shape[0] / 4.8)
+        count = detections.shape[0] if isinstance(detections, np.ndarray) else len(detections)
+        caption_w = int(im.shape[0] / 3.5)
         caption_h = im.shape[0] // 25
         start = (im.shape[1] - caption_w, im.shape[0] // 20)
         end = (im.shape[1], start[1] + caption_h)
         # cv2.rectangle(im, start, end, color=(0,0,0), thickness=-1)
-        cv2.putText(im, f'Count: {len(detections)}',
-                    (im.shape[1] - caption_w + im.shape[0]//100, end[1]-im.shape[1]//200),
-                    font, 1.2*text_size,
+        cv2.putText(im, f'Count: {count}',
+                    (im.shape[1] - caption_w + im.shape[0]//100, end[1]-im.shape[1]//100),
+                    font, 1*text_size,
                     (255,255,255), font_bold*2, cv2.LINE_AA)
 
 
