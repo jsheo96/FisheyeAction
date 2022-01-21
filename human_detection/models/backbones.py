@@ -321,9 +321,9 @@ class yolov5(nn.Module):
         print('')
 
     def forward(self, x):
-        i_small = 4  # P3
-        i_medium = 14  # P4
-        i_large = 10  # P5
+        i_small = 17  # P3
+        i_medium = 20  # P4
+        i_large = 23  # P5
         
         y, dt = [], []  # outputs
         for m in self.model:
