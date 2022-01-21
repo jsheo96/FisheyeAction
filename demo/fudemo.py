@@ -18,7 +18,8 @@ img = cv2.imread('demo/exhibition.jpg')
 img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
 
 rapid = Detector(model_name='rapid',
-                 weights_path='human_detection/weights/pL1_MWHB608_Mar11_4500.ckpt',
+                 weights_path='human_detection/weights/rapid_pL1_yolov5x_CPHBMW608_Jan21_5000.ckpt',
+                 backbone='yolov5x',
                  use_cuda=False)
 
 # feed image to model
@@ -32,7 +33,6 @@ detections = rapid.detect_one(img=img,
 fisheye_utills = FU(img=img, fov=160)
 # ignore confidence values at last element
 uvwha = detections[:,:5]
-print('uvwha.shape:',uvwha.shape)
 # returns are described below
 # patches.shape     : [N, C, H, W]
 # sphericals.shape: [N, 2(lon, lat), H, W]
@@ -49,14 +49,11 @@ for i, center in enumerate(detections[:,:2]):
 
 plt.savefig('demo/output/original.png')
 
-import time
-now = time.time()
 patches, sphericals, k_values = fisheye_utills.get_tangent_patch(uvwha,
-                                                             visualize=False,
-                                                             detectnet=True)
-print(time.time() - now)
+                                                                 visualize=False,
+                                                                 detectnet=True,)
 
-for i in range(patches.shape[0]):
+for i in range(patches.shape[0] if isinstance(patches, torch.Tensor) else len(patches)):
     img = patches[i].permute(1,2,0).numpy() * 255
     img = cv2.cvtColor(img, cv2.COLOR_RGB2BGR)
     cv2.imwrite(f'demo/output/patches/{i:02d}.jpg', img)

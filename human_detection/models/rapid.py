@@ -70,11 +70,11 @@ class RAPiD(nn.Module):
                 print('Warning: no COCO-pretrained weights found.',
                       'Please check https://github.com/ultralytics/yolov5/releases for it.')
         elif backbone == 'yolov5x':
-            print("Using backbone yolov5x6. Loading COCO pre-trained weights...")
+            print("Using backbone yolov5x. Loading COCO pre-trained weights...")
             backbone_coco_path = 'human_detection/weights/yolov5x_backbone.pth'
             if os.path.exists(backbone_coco_path):
                 pretrained = torch.load(backbone_coco_path)
-                self.backbone = models.backbones.yolov5(pretrained.yaml)
+                self.backbone = human_detection.models.backbones.yolov5(pretrained.yaml)
                 csd = pretrained.state_dict()  # checkpoint state_dict as FP32
                 csd = {k: v for k, v in csd.items() if k in self.backbone.state_dict() and v.shape == self.backbone.state_dict()[k].shape}  # intersect
                 self.backbone.load_state_dict(csd, strict=False)  # load
