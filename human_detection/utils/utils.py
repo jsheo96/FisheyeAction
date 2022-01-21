@@ -1,5 +1,6 @@
-import cv2
 from PIL import Image
+import cv2
+import numpy as np
 import random
 import torch
 from torchvision import transforms
@@ -38,7 +39,7 @@ def normalize_bbox(xywha, w, h, max_angle=1):
     
     return xywha
 
-import time
+
 def rect_to_square(img, labels, target_size, pad_value=0, aug=False):
     '''
     Pre-processing during training and testing
@@ -47,23 +48,30 @@ def rect_to_square(img, labels, target_size, pad_value=0, aug=False):
     2. Pad the img it to square
 
     Arguments:
-        img: PIL image
+        img: PIL image or CV2 image
         labels: torch.tensor, shape(N,5), [cx, cy, w, h, angle], not normalized
         target_size: int, e.g. 608
         pad_value: int
         aug: bool
     '''
-    # assert isinstance(img, Image.Image)
-    # ori_h, ori_w = img.height, img.width
-    ori_h, ori_w = img.shape[0], img.shape[1]
+    is_pil = isinstance(img, Image.Image)
+    is_cv2 = isinstance(img, np.ndarray)
+    assert is_pil or is_cv2
+    
+    if is_pil:
+        ori_h, ori_w = img.height, img.width
+    elif is_cv2:
+        ori_h = img.shape[0]
+        ori_w = img.shape[1]
 
     # resize to target input size (usually smaller)
     resize_scale = target_size / max(ori_w,ori_h)
     # unpad_w, unpad_h = target_size * w / max(w,h), target_size * h / max(w,h)
     unpad_w, unpad_h = int(ori_w*resize_scale), int(ori_h*resize_scale)
-
-    # img = transforms.functional.resize(img, (unpad_h,unpad_w))
-    img = cv2.resize(img, (unpad_w, unpad_h))
+    if is_pil:
+        img = transforms.functional.resize(img, (unpad_h,unpad_w))
+    elif is_cv2:
+        img = cv2.resize(img, (unpad_w, unpad_h))
 
     # pad to square
     if aug:
@@ -76,8 +84,11 @@ def rect_to_square(img, labels, target_size, pad_value=0, aug=False):
     right = target_size - unpad_w - left
     bottom = target_size - unpad_h - top
 
-    img = transforms.functional.to_tensor(img)
-    img = transforms.functional.pad(img, padding=(left,top,right,bottom), fill=0)
+    if is_pil:
+        img = transforms.functional.pad(img, padding=(left,top,right,bottom), fill=0)
+    elif is_cv2:
+        img = transforms.functional.to_tensor(img)
+        img = transforms.functional.pad(img, padding=(left,top,right,bottom), fill=0)
     # record the padding info
     img_tl = (left, top) # start of the true image
     img_wh = (unpad_w, unpad_h)

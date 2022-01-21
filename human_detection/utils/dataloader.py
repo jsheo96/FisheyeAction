@@ -36,8 +36,8 @@ class Video4Detector():
         assert self.current_frame == int(self.video.get(cv2.CAP_PROP_POS_FRAMES))
 
         frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-        frame = Image.fromarray(frame)
-        return frame, None, None
+        #  frame = Image.fromarray(frame)
+        return frame, None, str(f'{self.current_frame:08}')
 
     def close(self):
         self.video.release()

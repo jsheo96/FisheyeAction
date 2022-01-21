@@ -3,12 +3,15 @@ import numpy as np
 from PIL import Image
 import matplotlib.pyplot as plt
 from tqdm import tqdm
+from pathlib import Path
+
 import torch
 import torchvision.transforms.functional as tvf
 
 from human_detection.utils import visualization, dataloader, utils
-from torchvision import transforms
-import time
+from human_detection.sort import Sort
+
+
 class Detector():
     '''
     Wrapper of image object detectors.
@@ -30,7 +33,6 @@ class Detector():
             return
         if model_name == 'rapid':
             from human_detection.models.rapid import RAPiD
-            # model = RAPiD(backbone='dark53')
             model = RAPiD(backbone=kwargs.get('backbone','dark53'))
         elif model_name == 'rapid_export': # testing-only version
             from human_detection.models.rapid_export import RAPiD
@@ -57,23 +59,23 @@ class Detector():
         Inference on a single image.
 
         Args:
-            img_path: str or pil_img: PIL.Image
+            img_path: str or img: PIL.Image
 
             input_size: int, input resolution
             conf_thres: float, confidence threshold
 
-            return_img: bool, if True, return am image with bbox visualizattion. \
+            return_img: bool, if True, return am image with bbox visualizattion. 
                 default: False
-            visualize: bool, if True, plt.show the image with bbox visualization. \
+            visualize: bool, if True, plt.show the image with bbox visualization. 
                 default: False
         '''
-        assert 'img_path' in kwargs or 'pil_img' in kwargs
-        if 'pil_img' in kwargs.keys():
-            img = kwargs.pop('pil_img')
+        assert 'img_path' in kwargs or 'img' in kwargs
+        if 'img' in kwargs:
+            img = kwargs.pop('img')
         else:
-            cv2.imread(kwargs['img_path'])[:, :, ::-1]
-        # img = kwargs.pop('pil_img', None) or cv2.imread(kwargs['img_path'])[:,:,::-1]
-        detections = self._predict_pil(img, **kwargs)
+            Image.open(kwargs['img_path'])
+
+        detections = self._predict_img(img, **kwargs)
 
         if kwargs.get('return_img', False):
             np_img = np.array(img)
@@ -102,11 +104,40 @@ class Detector():
         dts = self._detect_iter(iter(ims), **kwargs)
         return dts
 
+    def detect_video(self, video_dir, **kwargs):
+        '''
+        Run on a video in a folder
+        Args:
+            video_dir: str
+            input_size: int, input resolution
+            conf_thres: float, confidence threshold
+            save_video: bool, if True, save video file with bbox visualization.
+                default: False
+        '''
+        gt_path = kwargs['gt_path'] if 'gt_path' in kwargs else None
+        
+        ims = dataloader.Video4Detector(video_dir)
+        dts = self._detect_iter(iter(ims), **kwargs)
+
+        return dts
+
     def _detect_iter(self, iterator, **kwargs):
         detection_json = []
+        if kwargs.get('save_video',False):
+            filename = f'./output_videos/bbox_{str(Path(iterator.video_path).stem)}.mp4'
+            print(f'writing {filename} (fps:{iterator.fps}, size:({iterator.frame_w}, {iterator.frame_h}))')
+            fourcc = cv2.VideoWriter_fourcc(*'mp4v')
+            out = cv2.VideoWriter(filename, fourcc, iterator.fps, (iterator.frame_w, iterator.frame_h))
+
+        if kwargs.get('sort', False):
+            tracker = Sort(rotation=True)
+
         for _ in tqdm(range(len(iterator))):
-            pil_frame, anns, img_id = next(iterator)
-            detections = self._predict_pil(pil_img=pil_frame, **kwargs)
+            frame, anns, img_id = next(iterator)
+            detections = self._predict_img(img=frame, **kwargs)
+            if kwargs.get('sort', False):
+                xywhai = tracker.update(detections)
+                detections = xywhai  # [x, y, w, h, a, ID]
 
             for dt in detections:
                 x, y, w, h, a, conf = [float(t) for t in dt]
@@ -115,33 +146,38 @@ class Detector():
                            'segmentation': []}
                 detection_json.append(dt_dict)
 
+            if kwargs.get('save_video', False):
+                np_img = frame if isinstance(frame, np.ndarray) else np.array(frame)
+                visualization.draw_dt_on_np(np_img, detections, **kwargs)
+                out.write(cv2.cvtColor(np_img, cv2.COLOR_RGB2BGR)) 
+
+        if kwargs.get('save_video',False):
+            out.release()
+
         return detection_json
 
-    def _predict_pil(self, pil_img, **kwargs):
+    def _predict_img(self, img, **kwargs):
         '''
         Args:
-            pil_img: PIL.Image.Image
+            img: PIL.Image.Image
             input_size: int, input resolution
             conf_thres: float, confidence threshold
         '''
         input_size = kwargs.get('input_size', self.input_size)
         conf_thres = kwargs.get('conf_thres', self.conf_thres)
-        # assert isinstance(pil_img, Image.Image), 'input must be a PIL.Image'
+        assert isinstance(img, Image.Image) or isinstance(img, np.ndarray), 'input must be a PIL.Image or np.ndarray read by cv2'
         assert input_size is not None, 'Please specify the input resolution'
         assert conf_thres is not None, 'Please specify the confidence threshold'
 
         # pad to square
-        input_img, _, pad_info = utils.rect_to_square(pil_img, None, input_size, 0)
+        input_img, _, pad_info = utils.rect_to_square(img, None, input_size, 0)
 
-        # input_img = tvf.to_tensor(input_img)
-        # totensor = transforms.ToTensor()
-        # input_img = totensor(input_img)
-        input_ = input_img.unsqueeze(0)
+        input_ori = input_img if isinstance(input_img, torch.Tensor) else tvf.to_tensor(input_img) 
+        input_ = input_ori.unsqueeze(0)
 
         assert input_.dim() == 4
         device = next(self.model.parameters()).device
         input_ = input_.to(device=device)
-
         with torch.no_grad():
             dts = self.model(input_).cpu()
 
@@ -151,19 +187,8 @@ class Detector():
         if len(dts) > 1000:
             _, idx = torch.topk(dts[:,5], k=1000)
             dts = dts[idx, :]
-
-        if kwargs.get('debug', False):
-            np_img = np.array(input_img)
-            visualization.draw_dt_on_np(np_img, dts)
-            plt.imshow(np_img)
-            plt.show()
         dts = utils.nms(dts, is_degree=True, nms_thres=0.45, img_size=input_size)
         dts = utils.detection2original(dts, pad_info.squeeze())
-        if kwargs.get('debug', False):
-            np_img = np.array(pil_img)
-            visualization.draw_dt_on_np(np_img, dts)
-            plt.imshow(np_img)
-            plt.show()
         return dts
 
 
