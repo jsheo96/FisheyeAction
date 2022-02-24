@@ -24,7 +24,8 @@ class RAPiD(nn.Module):
         self.index_L = torch.Tensor(indices[0]).long()
         self.index_M = torch.Tensor(indices[1]).long()
         self.index_S = torch.Tensor(indices[2]).long()
-
+        print(backbone)
+        exit()
         if backbone == 'dark53':
             self.backbone = human_detection.models.backbones.Darknet53()
             print("Using backbone Darknet-53. Loading ImageNet weights....")
@@ -47,7 +48,7 @@ class RAPiD(nn.Module):
             backbone_yaml_path = 'human_detection/weights/yolov5n.yaml'
             if os.path.exists(backbone_coco_path):
                 pretrained = torch.load(backbone_coco_path)
-                self.backbone = models.backbones.yolov5(pretrained.yaml)
+                self.backbone = human_detection.models.backbones.yolov5(pretrained.yaml)
                 csd = pretrained.state_dict()  # checkpoint state_dict as FP32
                 csd = {k: v for k, v in csd.items() if k in self.backbone.state_dict() and v.shape == self.backbone.state_dict()[k].shape}  # intersect
                 self.backbone.load_state_dict(csd, strict=False)  # load
@@ -66,6 +67,19 @@ class RAPiD(nn.Module):
                 csd = {k: v for k, v in csd.items() if k in self.backbone.state_dict() and v.shape == self.backbone.state_dict()[k].shape}  # intersect
                 self.backbone.load_state_dict(csd, strict=False)  # load
                 #  torch.save(self.backbone, './weights/yolov5s_backbone.pth')
+            else:
+                print('Warning: no COCO-pretrained weights found.',
+                      'Please check https://github.com/ultralytics/yolov5/releases for it.')
+        elif backbone == 'yolov5m':
+            print("Using backbone yolov5m. Loading COCO pre-trained weights...")
+            backbone_coco_path = 'human_detection/weights/yolov5m_backbone.pth'  # yolov5n6.pt / yolov5n6.pt / yolov5s.pt
+            if os.path.exists(backbone_coco_path):
+                pretrained = torch.load(backbone_coco_path)
+                self.backbone = models.backbones.yolov5(pretrained.yaml)
+                csd = pretrained.state_dict()  # checkpoint state_dict as FP32
+                csd = {k: v for k, v in csd.items() if k in self.backbone.state_dict() and v.shape == self.backbone.state_dict()[k].shape}  # intersect
+                self.backbone.load_state_dict(csd, strict=False)  # load
+                #  torch.save(self.backbone, './weights/yolov5m_backbone.pth')
             else:
                 print('Warning: no COCO-pretrained weights found.',
                       'Please check https://github.com/ultralytics/yolov5/releases for it.')

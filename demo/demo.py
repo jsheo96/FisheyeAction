@@ -14,9 +14,13 @@ from pose_estimation.pose_estimator import PoseEstimatorV2 as PE
 # should open image first
 img = Image.open('./exhibition.jpg')  
 
+# rapid = Detector(model_name='rapid',
+#                  weights_path='../human_detection/weights/rapid_pL1_yolov5x_CPHBMW608_Jan21_6000.ckpt',
+#                  use_cuda=False)
 rapid = Detector(model_name='rapid',
-                 weights_path='../human_detection/weights/pL1_MWHB1024_Mar11_4000.ckpt',
-                 use_cuda=False)
+                              backbone='yolov5m',
+                              weights_path='/Data/FisheyeAction/human_detection/weights/rapid_pL1_yolov5x_CPHBMW608_Jan21_6000.ckpt',
+                              use_cuda=True)
 
 # feed image to model
 detections = rapid.detect_one(pil_img=img,

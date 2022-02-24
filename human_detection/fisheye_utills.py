@@ -277,7 +277,7 @@ class FisheyeUtills:
         f = self.fov2f(d * np.sqrt(np.square(u0)+np.square(v0)), fov, k=1)  # [B]
         
         # u, v denote pixel coordinates in tangent image
-        u, v = torch.meshgrid(torch.arange(height), torch.arange(width), indexing='ij')
+        u, v = torch.meshgrid(torch.arange(height), torch.arange(width))#, indexing='ij')
         u = u.unsqueeze(0).repeat(f.shape[0], 1, 1)  # [B, height, width]
         v = v.unsqueeze(0).repeat(f.shape[0], 1, 1)  # [B, height, width]
         
