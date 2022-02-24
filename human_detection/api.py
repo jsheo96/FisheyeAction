@@ -69,11 +69,13 @@ class Detector():
             visualize: bool, if True, plt.show the image with bbox visualization. 
                 default: False
         '''
-        assert 'img_path' in kwargs or 'img' in kwargs
-        if 'img' in kwargs:
-            img = kwargs.pop('img')
-        else:
-            Image.open(kwargs['img_path'])
+        assert 'img_path' in kwargs or 'pil_img' in kwargs
+        img = kwargs.pop('pil_img', None)
+        # img = kwargs.pop('pil_img', None) or Image.open(kwargs['img_path'])
+        # if 'img' in kwargs:
+        #     img = kwargs.pop('img')
+        # else:
+        #     Image.open(kwargs['img_path'])
 
         detections = self._predict_img(img, **kwargs)
 

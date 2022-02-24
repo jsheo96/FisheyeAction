@@ -12,7 +12,7 @@ class DetectNet:
 
     def detect(self, img):
         img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
-        detections = self.model.detect_one(img=img,
+        detections = self.model.detect_one(pil_img=img,
                                       visualize=False,
                                       input_size=608,#1024,
                                       conf_thres=0.4,

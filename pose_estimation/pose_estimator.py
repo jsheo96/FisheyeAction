@@ -48,6 +48,7 @@ class PoseEstimatorV2:
                                 z is depth of human detected in mm
         '''
         # assert image_patch.shape == (256, 256, 3), 'image_patch shape is not equal to (256, 256, 3). Got {}'.format(image_patch.shape)
+        
         assert image_patch.dtype == torch.float32, 'image_patch dtype must be torch.float32. Got {}'.format(image_patch.dtype)
         with torch.no_grad():
             image_patch = self.transform(image_patch)
