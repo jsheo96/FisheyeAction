@@ -24,8 +24,6 @@ class RAPiD(nn.Module):
         self.index_L = torch.Tensor(indices[0]).long()
         self.index_M = torch.Tensor(indices[1]).long()
         self.index_S = torch.Tensor(indices[2]).long()
-        print(backbone)
-        exit()
         if backbone == 'dark53':
             self.backbone = human_detection.models.backbones.Darknet53()
             print("Using backbone Darknet-53. Loading ImageNet weights....")

@@ -12,14 +12,14 @@ from human_detection.fisheye_utills import FisheyeUtills as FU
 from pose_estimation.pose_estimator import PoseEstimatorV2 as PE
 
 # should open image first
-img = Image.open('./exhibition.jpg')  
+img = Image.open('demo/exhibition.jpg')
 
 # rapid = Detector(model_name='rapid',
 #                  weights_path='../human_detection/weights/rapid_pL1_yolov5x_CPHBMW608_Jan21_6000.ckpt',
 #                  use_cuda=False)
 rapid = Detector(model_name='rapid',
                               backbone='yolov5m',
-                              weights_path='/Data/FisheyeAction/human_detection/weights/rapid_pL1_yolov5x_CPHBMW608_Jan21_6000.ckpt',
+                              weights_path='/Data/FisheyeAction/human_detection/weights/rapid_pL1_yolov5m_CPHBMW608_Feb20_6000.ckpt',
                               use_cuda=True)
 
 # feed image to model
