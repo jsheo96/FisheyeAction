@@ -6,9 +6,8 @@ import time
 class DetectNet:
     def __init__(self, use_cuda=True):
         self.model = Detector(model_name='rapid',
-                              backbone='yolov5n',
-                              # weights_path='/Data/FisheyeAction/human_detection/weights/pL1_MWHB1024_Mar11_4000.ckpt',
-                              weights_path='/Data/FisheyeAction/human_detection/weights/rapid_pL1_yolov5n_CP608_Dec24_6000.ckpt',
+                              backbone='yolov5x',
+                              weights_path='/Data/FisheyeAction/human_detection/weights/rapid_pL1_yolov5x_CPHBMW608_Jan21_6000.ckpt',
                               use_cuda=use_cuda)
 
     def detect(self, img):

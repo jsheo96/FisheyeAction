@@ -39,13 +39,12 @@ if __name__ == '__main__':
             frame = cv2.imread(path)
             start = time.time()
             patches, k_values = human_detector.detect(frame)
-
-            patches = torch.stack(patches, 0).cuda()
+            # patches = torch.stack(patches, 0).cuda()
             patches *= 255
             patches = pose_estimator.transform(patches)
-            k_values = torch.stack(k_values, 0).unsqueeze(-1).cuda()
+            # k_values = torch.stack(k_values, 0).unsqueeze(-1).cuda()
             pose = pose_estimator.batch_forward(patches, k_values)
-            # print(time.time()-start)
+            print(time.time()-start)
             if vis:
                 patch = patches[0]
                 patch = decode(patch)

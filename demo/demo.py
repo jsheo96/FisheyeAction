@@ -10,13 +10,18 @@ import torch
 from human_detection.api import Detector
 from human_detection.fisheye_utills import FisheyeUtills as FU
 from pose_estimation.pose_estimator import PoseEstimatorV2 as PE
+sys.path.insert(0, 'human_detection/')
 
 # should open image first
-img = Image.open('./exhibition.jpg')  
+img = Image.open('demo/exhibition.jpg')
 
+# rapid = Detector(model_name='rapid',
+#                  weights_path='../human_detection/weights/rapid_pL1_yolov5x_CPHBMW608_Jan21_6000.ckpt',
+#                  use_cuda=False)
 rapid = Detector(model_name='rapid',
-                 weights_path='../human_detection/weights/pL1_MWHB1024_Mar11_4000.ckpt',
-                 use_cuda=False)
+                              backbone='yolov5m',
+                              weights_path='/Data/FisheyeAction/human_detection/weights/rapid_pL1_yolov5m_CPHBMW608_Feb20_6000.ckpt',
+                              use_cuda=True)
 
 # feed image to model
 detections = rapid.detect_one(pil_img=img,
@@ -48,29 +53,35 @@ for i, center in enumerate(detections[:,:2]):
     ax.set_xticklabels([])
     ax.set_yticklabels([])
 
-plt.savefig('./output/original.png')
-
+plt.savefig('demo/output/original.png')
 patches, sphericals, k_values = fisheye_utills.get_tangent_patch(uvwha,
                                                              visualize=False,
                                                              detectnet=True)
 
-
 pose_estimator = PE()
 poses = []
-for i, patch in enumerate(patches):
-    p = patch.permute(1,2,0).numpy() * 255
-    poses.append(pose_estimator.forward(p, k_values[i]))
-    
+# for i, patch in enumerate(patches):
+#     p = patch.permute(1,2,0).cpu().numpy() * 255
+#     poses.append(pose_estimator.forward(p, k_values[i]))
+patches *= 255
+patches = pose_estimator.transform(patches)
+poses = pose_estimator.batch_forward(patches, k_values)
+# poses = [poses[i, :,:] for i in range(poses.shape[0])]
 # patch image pixel to virtual sphere
 shperical_poses = []
 for i, p in enumerate(poses):
-    if p.size > 0:
-        def patch2sphere(row):
-            lon, lat = sphericals[i][:, int(row[1]), int(row[0])]
-            return fisheye_utills.sphere2cartesian(lon=lon, lat=lat, depth=row[-1])
-        shperical_poses.append(np.apply_along_axis(patch2sphere, 1, p))
+    # if p.size > 0:
+    def patch2sphere(row):
+        # lon, lat = sphericals[i][:, int(row[1]), int(row[0])]
+        lon, lat = sphericals[i][int(row[1]), int(row[0]), :]
+        return fisheye_utills.sphere2cartesian(lon=lon, lat=lat, depth=row[-1]).cpu().numpy()
+    p = p.cpu().numpy()
+    shperical_poses.append(np.apply_along_axis(patch2sphere, 1, p))
         
-skeleton = ((0, 16), (16, 1), (1, 15), (15, 14), (14, 8), (14, 11), (8, 9), (9, 10), (10, 19), (11, 12), (12, 13), (13, 20), (1, 2), (2, 3), (3, 4), (4, 17), (1, 5), (5, 6), (6, 7), (7, 18))
+# skeleton = ((0, 16), (16, 1), (1, 15), (15, 14), (14, 8), (14, 11), (8, 9), (9, 10), (10, 19), (11, 12), (12, 13), (13, 20), (1, 2), (2, 3), (3, 4), (4, 17), (1, 5), (5, 6), (6, 7), (7, 18))
+skeleton = (
+    (0, 7), (7, 8), (8, 9), (9, 10), (8, 11), (11, 12), (12, 13), (8, 14), (14, 15), (15, 16), (0, 1), (1, 2), (2, 3),
+    (0, 4), (4, 5), (5, 6))
 colors = cm.rainbow(np.linspace(0, 1, len(shperical_poses)))
 
 fig = plt.figure(figsize=(7,7))
@@ -91,7 +102,7 @@ for i, p in enumerate(shperical_poses):
                     (p[sk[0],2], p[sk[1],2]),
                     color=colors[i], linewidth=2, alpha=0.3)
 
-plt.savefig('./output/3d_plot.png')
+plt.savefig('demo/output/3d_plot.png')
 
 ncols = int(np.round(np.sqrt(len(patches))))
 nrows = len(patches)//ncols + 1
@@ -102,7 +113,7 @@ for row in range(nrows):
         idx = row * ncols + col
         if idx < len(patches):
             axes[row, col].set_title(f'{idx+1:02d}. {poses[idx][0,-1]/1000:.1f}m')
-            axes[row, col].imshow(patches[idx].permute(1,2,0))
+            axes[row, col].imshow(patches[idx].permute(1,2,0).cpu())
             # axes[row, col].scatter(poses[idx][:,0], poses[idx][:,1], color=colors[idx], alpha=0.3)
             axes[row, col].set_xticks([])
             axes[row, col].set_yticks([])
@@ -117,4 +128,4 @@ for row in range(nrows):
             axes[row, col].remove()
             
 plt.tight_layout()
-plt.savefig('./output/patches.png')
+plt.savefig('demo/output/patches.png')
