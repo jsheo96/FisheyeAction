@@ -3,6 +3,7 @@ from PIL import Image
 from human_detection.api import Detector
 from human_detection.fisheye_utills import FisheyeUtills as FU
 import time
+import torch
 class DetectNet:
     def __init__(self, use_cuda=True):
         self.model = Detector(model_name='rapid',
@@ -24,6 +25,6 @@ class DetectNet:
                                                                          visualize=False,
                                                                          detectnet=True)
         else:
-            patches = []
-            k_values = []
+            patches = torch.zeros((0,3,256,256))
+            k_values = torch.zeros((0))
         return patches, k_values
