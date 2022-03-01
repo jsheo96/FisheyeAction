@@ -5,10 +5,10 @@ import argparse
 import socket
 import time
 ap = argparse.ArgumentParser()
-ap.add_argument("-s", "--server-ip", required=True,
+ap.add_argument("-s", "--server-ip", default='192.168.0.25',
     help="ip address of the server to which the client will connect")
 args = vars(ap.parse_args())
-sender = imagezmq.ImageSender(connect_to="tcp://{}:5555".format(
+sender = imagezmq.ImageSender(connect_to="tcp://{}:8888".format(
     args["server_ip"]))
 rpiName = socket.gethostname()
 vs = VideoStream(usePiCamera=True).start()
