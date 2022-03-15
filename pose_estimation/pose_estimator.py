@@ -13,6 +13,74 @@ from pose_estimation.utils.pose_utils import process_bbox, pixel2cam
 from pose_estimation.dataset import generate_patch_image
 import math
 import time
+import pickle
+from pose_estimation.pose_hrnet_se_lambda import get_pose_net
+
+class PoseEstimatorV3:
+    def __init__(self, use_cuda=True):
+        '''Pose estimator implementation using MIPNet
+        produces pose tensors from image_patches.
+        '''
+        config = pickle.load(open('pose_estimation/lambda_coco.cfg', 'rb'))
+        model = get_pose_net(config, is_train=False)
+        model_object = torch.load('pose_estimation/weights/checkpoint_103.pth')
+        model.load_state_dict(model_object['latest_state_dict'], strict=False)
+        model = torch.nn.DataParallel(model).cuda()
+        model.eval()
+        self.model = model
+        self.transform = transforms.Normalize(mean=cfg.pixel_mean, std=cfg.pixel_std)
+        self.use_cuda = use_cuda
+        self.lambda_vec = torch.FloatTensor([[1.,0.]])
+
+    def forward(self, image_patch):
+        '''Calculate 3D pose coordinates of 17 joints of humans detected in
+        image patches.
+
+        Arguments:
+            image_patch (array) : a numpy array whose shape is (256, 256, 3)
+                                  The color order should be R, G, B and the data type
+                                  NOTE: dtype should be np.float32
+                                  NOTE: value range must be 0. ~255.
+            k_value (tensor) : a tensor with the shape of (1,)
+                                k_value is originally calculated by sqrt(f_x*f_y*area(real)/area(image))
+                                k_value reflects the approximate depth from camera to human.
+                                k_value in fisheye camera is calculated using triangulation with
+                                approximate height of ceiling on which the camera is attached.
+        Returns:
+            pose_3d (tensor) : a tensor whose shape is (21, 3)
+                                x,y,z coordinates of 21 joints
+                                x,y is within 0~255 which height/width of image_patch
+                                z is depth of human detected in mm
+        '''
+        # assert image_patch.shape == (256, 256, 3), 'image_patch shape is not equal to (256, 256, 3). Got {}'.format(image_patch.shape)
+
+        assert image_patch.dtype == torch.float32, 'image_patch dtype must be torch.float32. Got {}'.format(
+            image_patch.dtype)
+        with torch.no_grad():
+            image_patch = self.transform(image_patch)
+            image_patch = image_patch.cuda() if torch.cuda.is_available() and self.use_cuda else image_patch.cpu()
+            image_patch = image_patch.unsqueeze(0)
+            B = image_patch.shape[0]
+            lambda_vec = self.lambda_vec.repeat(B, 1)
+            output = self.model(image_patch, lambda_vec)
+        return output
+
+    def batch_forward(self, image_patch):
+        '''
+        esitmate pose for several images (batch)
+        :param image_patch: batch number of normalized cuda images
+        :param k_value: batch number k value tensor
+        :return: batch number of pose_3d (tensor)
+        '''
+        with torch.no_grad():
+            B = image_patch.shape[0]
+            lambda_vec = self.lambda_vec.repeat(B, 1)
+            output = self.model(image_patch, lambda_vec)
+        return output
+
+    def visualize(self, image, pose):
+        print(image.shape, pose.shape)
+        return pose
 
 class PoseEstimatorV2:
     def __init__(self,use_cuda=True):

@@ -27,4 +27,5 @@ class DetectNet:
         else:
             patches = torch.zeros((0,3,256,256))
             k_values = torch.zeros((0))
-        return patches, k_values
+            sphericals = torch.zeros((0,256,256,2))
+        return patches, k_values, sphericals
