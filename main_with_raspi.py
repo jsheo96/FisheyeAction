@@ -7,6 +7,9 @@ import sys
 import requests
 from human_detection.fisheye_utills import FisheyeUtills as FU
 from connection.sound_utils import Microphone
+from connection.video_utils import VideoCapture
+import cv2
+import time
 sys.path.insert(0, 'human_detection')
 
 
@@ -19,37 +22,8 @@ def decode(patch):
     patch = patch.permute(1, 2, 0).cpu().numpy()
     return patch
 
-import cv2, queue, threading, time
 
 # bufferless VideoCapture
-class VideoCapture:
-    def __init__(self, name):
-        while True:
-            self.cap = cv2.VideoCapture(name)
-            if self.cap.grab():
-                break
-            print("Retrying camera connection")
-        self.q = queue.Queue()
-        t = threading.Thread(target=self._reader)
-        t.daemon = True
-        t.start()
-
-    # read frames as soon as they are available, keeping only most recent one
-    def _reader(self):
-        while True:
-            ret, frame = self.cap.read()
-            if not ret:
-                break
-            if not self.q.empty():
-                try:
-                    self.q.get_nowait()   # discard previous (unprocessed) frame
-                except queue.Empty:
-                    pass
-            self.q.put(frame)
-
-    def read(self):
-        return self.q.get()
-
 
 if __name__ == '__main__':
     human_detector = DetectNet(use_cuda=True)
