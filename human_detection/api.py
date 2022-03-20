@@ -53,6 +53,7 @@ class Detector():
         else:
             print("Using CPU instead of CUDA...")
             self.model = model
+        self.tracker = Sort(rotation=True)
 
     def detect_one(self, **kwargs):
         '''
@@ -89,6 +90,10 @@ class Detector():
             plt.figure(figsize=(10,10))
             plt.imshow(np_img)
             plt.show()
+        if kwargs.get('sort', False):
+            detections = self.tracker.update(detections)
+            detections = torch.FloatTensor(detections)
+            detections.to(device='cuda:0' if torch.cuda.is_available() else 'cpu')
         return detections
 
     def detect_imgSeq(self, img_dir, **kwargs):

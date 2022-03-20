@@ -4,6 +4,7 @@ from human_detection.api import Detector
 from human_detection.fisheye_utills import FisheyeUtills as FU
 import time
 import torch
+import copy
 class DetectNet:
     def __init__(self, use_cuda=True):
         self.model = Detector(model_name='rapid',
@@ -17,15 +18,18 @@ class DetectNet:
                                       visualize=False,
                                       input_size=608,#1024,
                                       conf_thres=0.4,
-                                      test_aug=None)
+                                      test_aug=None,
+                                      sort=True)
         if detections.shape[0] > 0:
             img_utills = FU(img)
-            uvwha = detections[:,:5]
+            uvwha = copy.deepcopy(detections[:,:5])
             patches, sphericals, k_values = img_utills.get_tangent_patch(uvwha,
                                                                          visualize=False,
                                                                          detectnet=True)
+            ids = detections[:,5]
         else:
             patches = torch.zeros((0,3,256,256))
             k_values = torch.zeros((0))
             sphericals = torch.zeros((0,256,256,2))
-        return patches, k_values, sphericals
+            ids = torch.zeros((0))
+        return patches, k_values, sphericals, ids, detections
