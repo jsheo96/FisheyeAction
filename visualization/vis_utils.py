@@ -35,7 +35,7 @@ def visualize_posemap(patches, pose):
     overlay = cv2.addWeighted(patch, 1.0, pose, 1.0, 0.0)
     return overlay
 
-def visualize_skeleton(frame, pose, sphericals, ids, detections):
+def visualize_skeleton(frame, pose, sphericals, detections):
     """
     Returns an image with a skeleton of one person.
     :param frame: np.array (H, W, 3)
@@ -46,7 +46,8 @@ def visualize_skeleton(frame, pose, sphericals, ids, detections):
     """
     img_utils = FU(frame)
     skeleton = ( (1, 2), (0, 1), (0, 2), (2, 4), (1, 3), (6, 8), (8, 10), (5, 7), (7, 9), (12, 14), (14, 16), (11, 13), (13, 15), (5, 6), (11, 12) )
-    line_width = frame.shape[0] // 300
+    line_width = 2
+    point_radius = 3
     result = frame
     threshold = 0.4
     for i in range(pose.shape[0]):
@@ -57,19 +58,14 @@ def visualize_skeleton(frame, pose, sphericals, ids, detections):
             joint_lonlat = sphericals[i, :, :, :][joint_coord[0] * 4, joint_coord[1] * 4, :]
             joint_i, joint_j = img_utils.sphere2fisheye(joint_lonlat[0], joint_lonlat[1])
             joints.append((int(joint_i), int(joint_j), joint.max()))
-            if joint.max() >= threshold:
-                result = cv2.circle(result, (int(joint_i), int(joint_j)), color=(0, 0, 255), radius=line_width,
-                                    thickness=-1)
+
         for j, k in skeleton:
             if min(joints[j][2], joints[k][2]) >= threshold:
                 result = cv2.line(result, joints[j][:2], joints[k][:2], color=(0, 255, 0), thickness=line_width)
 
-        # visualize ids
-        # joint_lonlat = sphericals[i, 0, 0, :]
-        # point_i, point_j = img_utils.sphere2fisheye(joint_lonlat[0], joint_lonlat[1])
-        # cv2.putText(result, str(int(ids[i].item())), org=(int(point_i), int(point_j)), fontFace=cv2.FONT_HERSHEY_COMPLEX,
-        #             fontScale=1, thickness=1, color=(0,0,255), lineType=cv2.LINE_AA)
-        # x,y,w,h,a = detections[i, :5]
-        # result = draw_xywha(result, x, y, w, h, a)
+        for (x, y, conf) in joints:
+            if conf > threshold:
+                result = cv2.circle(result, (x,y), color=(0, 0, 255), radius=point_radius,
+                                    thickness=-1)
     draw_dt_on_np(result, detections)
     return result

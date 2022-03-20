@@ -26,10 +26,8 @@ class DetectNet:
             patches, sphericals, k_values = img_utills.get_tangent_patch(uvwha,
                                                                          visualize=False,
                                                                          detectnet=True)
-            ids = detections[:,5]
         else:
             patches = torch.zeros((0,3,256,256))
             k_values = torch.zeros((0))
             sphericals = torch.zeros((0,256,256,2))
-            ids = torch.zeros((0))
-        return patches, k_values, sphericals, ids, detections
+        return patches, k_values, sphericals, detections
