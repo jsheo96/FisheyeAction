@@ -45,18 +45,19 @@ def visualize_skeleton(frame, pose, sphericals):
     img_utils = FU(frame)
     skeleton = ( (1, 2), (0, 1), (0, 2), (2, 4), (1, 3), (6, 8), (8, 10), (5, 7), (7, 9), (12, 14), (14, 16), (11, 13), (13, 15), (5, 6), (11, 12) )
     result = frame
-    joints = []
     threshold = 0.4
-    for i in range(pose.shape[1]):
-        joint = pose[0, i, :, :].cpu().numpy()
-        joint_coord = np.unravel_index(joint.argmax(), joint.shape)
-        joint_lonlat = sphericals[0, :, :, :][joint_coord[0] * 4, joint_coord[1] * 4, :]
-        joint_i, joint_j = img_utils.sphere2fisheye(joint_lonlat[0], joint_lonlat[1])
-        joints.append((int(joint_i), int(joint_j), joint.max()))
-        if joint.max() >= threshold:
-            result = cv2.circle(result, (int(joint_i), int(joint_j)), color=(0, 0, 255), radius=3,
-                                thickness=-1)
-    for i, j in skeleton:
-        if joints[i][2] >= threshold and joints[j][2] >= threshold:
-            result = cv2.line(result, joints[i][:2], joints[j][:2], color=(0, 255, 0), thickness=1)
+    for i in range(pose.shape[0]):
+        joints = []
+        for j in range(pose.shape[1]):
+            joint = pose[i, j, :, :].cpu().numpy()
+            joint_coord = np.unravel_index(joint.argmax(), joint.shape)
+            joint_lonlat = sphericals[i, :, :, :][joint_coord[0] * 4, joint_coord[1] * 4, :]
+            joint_i, joint_j = img_utils.sphere2fisheye(joint_lonlat[0], joint_lonlat[1])
+            joints.append((int(joint_i), int(joint_j), joint.max()))
+            if joint.max() >= threshold:
+                result = cv2.circle(result, (int(joint_i), int(joint_j)), color=(0, 0, 255), radius=3,
+                                    thickness=-1)
+        for j, k in skeleton:
+            if min(joints[j][2], joints[k][2]) >= threshold:
+                result = cv2.line(result, joints[j][:2], joints[k][:2], color=(0, 255, 0), thickness=1)
     return result

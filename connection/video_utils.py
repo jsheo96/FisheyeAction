@@ -47,7 +47,7 @@ class VideoCapture:
         return self.q.get()
 
 class FolderCapture(object):
-    def __init__(self, folder='/Data/3D_pose_estimation_dataset/PIROPO/Room A/omni_1A/omni1A_test1'):
+    def __init__(self, folder='/Data/3D_pose_estimation_dataset/CEPDOF/Edge_cases'):
         self.folder = folder
         self.image_paths = []
         for fn in sorted(os.listdir(self.folder)):
@@ -61,6 +61,7 @@ class FolderCapture(object):
         """
         :return: (H, W, 3) np.array. BGR image.
         """
+        assert self.i < len(self), 'All files are read.'
         img = cv2.imread(self.image_paths[self.i])
         img = self.crop_and_resize(img)
         self.i += 1
@@ -81,3 +82,6 @@ class FolderCapture(object):
             img = img[d:h - d, :, :]
         img = cv2.resize(img, (1024, 1024), interpolation=cv2.INTER_NEAREST)
         return img
+
+    def __len__(self):
+        return len(self.image_paths)
