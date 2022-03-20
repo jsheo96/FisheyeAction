@@ -40,7 +40,7 @@ def draw_dt_on_np(im, detections, print_dt=False, color=(255,0,0),
             print(f'[{x} {y} {w} {h} {a}], confidence: {conf}')
         draw_xywha(im, x, y, w, h, a, color=color, linewidth=line_width)
         if kwargs.get('show_conf', True):
-            cv2.putText(im, f'{conf:.2f}', (int(x1),int(y1)), font, 1*text_size,
+            cv2.putText(im, f'{int(conf)}', (int(x1),int(y1)), font, 1*text_size,
                         (255,255,255), font_bold, cv2.LINE_AA)
         if kwargs.get('show_angle', False):
             cv2.putText(im, f'{int(a)}', (x,y), font, 1*text_size,

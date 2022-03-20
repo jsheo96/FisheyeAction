@@ -23,14 +23,14 @@ if __name__ == '__main__':
     trigger = ArmClapTrigger(cfg)
     while True:
         frame = cap.read()
-        patches, k_values, sphericals = human_detector.detect(frame)
+        patches, k_values, sphericals, ids, detections = human_detector.detect(frame)
         if patches.shape[0] == 0:
             continue
         patches = pose_estimator.transform(patches)
         pose = pose_estimator.batch_forward(patches)
         trigger.run(pose, sphericals, mic)
         if cfg['vis']:
-            result = visualize_skeleton(frame, pose, sphericals)
+            result = visualize_skeleton(frame, pose, sphericals, ids, detections)
             cv2.imshow("result", result)
             cv2.waitKey(1)
             # if record:
