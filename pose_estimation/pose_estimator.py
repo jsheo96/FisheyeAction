@@ -70,7 +70,7 @@ class PoseEstimatorV3:
         esitmate pose for several images (batch)
         :param image_patch: batch number of normalized cuda images
         :param k_value: batch number k value tensor
-        :return: batch number of pose_3d (tensor)
+        :return: batch number of pose_3d (tensor)ss
         '''
         with torch.no_grad():
             B = image_patch.shape[0]
