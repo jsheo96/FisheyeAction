@@ -4,6 +4,7 @@ import numpy as np
 from human_detection.fisheye_utills import FisheyeUtills as FU
 from human_detection.utils.visualization import draw_xywha
 from human_detection.utils.visualization import draw_dt_on_np
+import torch
 def decode(patch):
     """
     :param patch: FloatTensor (3, H, W). Normalized image
@@ -49,15 +50,15 @@ def visualize_skeleton(frame, pose, sphericals, detections):
     line_width = 2
     point_radius = 3
     result = frame
-    threshold = 0.4
+    threshold = 0.2
     for i in range(pose.shape[0]):
         joints = []
         for j in range(pose.shape[1]):
-            joint = pose[i, j, :, :].cpu().numpy()
-            joint_coord = np.unravel_index(joint.argmax(), joint.shape)
+            pos_ind, scores = get_maximum_from_heatmap(pose[i, j, :, :].unsqueeze(0))
+            joint_coord = np.unravel_index(pos_ind.item(), pose.shape[2:])
             joint_lonlat = sphericals[i, :, :, :][joint_coord[0] * 4, joint_coord[1] * 4, :]
             joint_i, joint_j = img_utils.sphere2fisheye(joint_lonlat[0], joint_lonlat[1])
-            joints.append((int(joint_i), int(joint_j), joint.max()))
+            joints.append((int(joint_i), int(joint_j), scores.item()))
 
         for j, k in skeleton:
             if min(joints[j][2], joints[k][2]) >= threshold:
@@ -69,3 +70,33 @@ def visualize_skeleton(frame, pose, sphericals, detections):
                                     thickness=-1)
     draw_dt_on_np(result, detections)
     return result
+
+def hierarchical_pool(heatmap):
+    pool1 = torch.nn.MaxPool2d(3, 1, 1)
+    pool2 = torch.nn.MaxPool2d(5, 1, 2)
+    pool3 = torch.nn.MaxPool2d(7, 1, 3)
+    map_size = (heatmap.shape[1]+heatmap.shape[2])/2.0
+    if map_size > 300:
+        maxm = pool3(heatmap[None, :, :, :])
+    elif map_size > 200:
+        maxm = pool2(heatmap[None, :, :, :])
+    else:
+        maxm = pool1(heatmap[None, :, :, :])
+
+    return maxm
+a  =0
+
+def get_maximum_from_heatmap(heatmap):
+    global a
+    a+=1
+    maxm = hierarchical_pool(heatmap)
+    maxm = torch.eq(maxm, heatmap).float()
+    heatmap = heatmap * maxm
+    scores = heatmap.view(-1)
+    if a == 81:
+        print('asd')
+    scores, pos_ind = scores.topk(1)
+    select_ind = (scores > 0.00).nonzero()
+    scores = scores[select_ind][:, 0]
+    pos_ind = pos_ind[select_ind][:, 0]
+    return pos_ind, scores

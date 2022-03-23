@@ -7,15 +7,17 @@ from visualization.vis_utils import visualize_skeleton
 from connection.video_utils import FolderCapture
 import yaml
 from action_recognition.triggers import ArmClapTrigger
-
+import os
 if __name__ == '__main__':
     with open('configs/config.yaml') as f:
         cfg = yaml.load(f, Loader=yaml.FullLoader)
+    if cfg['raspi']:
+        os.system('ssh -X pi@192.168.0.31 sh /home/pi/video_on_.sh &')
     human_detector = DetectNet(use_cuda=True)
     pose_estimator = PoseEstimatorV3(use_cuda=True)
     cap = VideoCapture() if cfg['raspi'] else FolderCapture()
     mic = Microphone()
-    # record = False
+    # record = True
     # if record:
     #     fourcc = cv2.VideoWriter_fourcc(*'DIVX')
     #     writer = cv2.VideoWriter('out.mp4', fourcc, 15.0, (1024,1024))
@@ -25,6 +27,8 @@ if __name__ == '__main__':
         frame = cap.read()
         patches, k_values, sphericals, detections = human_detector.detect(frame)
         if patches.shape[0] == 0:
+            cv2.imshow("result", frame)
+            cv2.waitKey(1)
             continue
         patches = pose_estimator.transform(patches)
         pose = pose_estimator.batch_forward(patches)
@@ -33,10 +37,9 @@ if __name__ == '__main__':
             result = visualize_skeleton(frame, pose, sphericals, detections)
             cv2.imshow("result", result)
             cv2.waitKey(1)
-            # if record:
-            #     writer.write(result)
-            #     n += 1
-            #     if n > 1000:
-            #         break
+    #         if record:
+    #             writer.write(result)
+    #             n += 1
+    #             if n > 1000:
+    #                 break
     # writer.release()
-

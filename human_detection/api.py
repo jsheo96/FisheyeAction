@@ -91,9 +91,11 @@ class Detector():
             plt.imshow(np_img)
             plt.show()
         if kwargs.get('sort', False):
-            detections = self.tracker.update(detections)
-            detections = torch.FloatTensor(detections)
+            detections = torch.FloatTensor(self.tracker.update(detections))
             detections.to(device='cuda:0' if torch.cuda.is_available() else 'cpu')
+            # fix angle to center
+            center = torch.FloatTensor([img.shape[1]/2, img.shape[0]/2])
+            detections[:,4] = torch.arctan((detections[:,0] - center[0]) / (center[0]-detections[:,1])) * 180 / np.pi
         return detections
 
     def detect_imgSeq(self, img_dir, **kwargs):
@@ -194,6 +196,7 @@ class Detector():
         if len(dts) > 1000:
             _, idx = torch.topk(dts[:,5], k=1000)
             dts = dts[idx, :]
+
         dts = utils.nms(dts, is_degree=True, nms_thres=0.45, img_size=input_size)
         dts = utils.detection2original(dts, pad_info.squeeze())
         return dts

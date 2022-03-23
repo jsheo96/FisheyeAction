@@ -21,7 +21,7 @@ class DetectNet:
                                       test_aug=None,
                                       sort=True)
         if detections.shape[0] > 0:
-            img_utills = FU(img)
+            img_utills = FU(img, bbox_scale=1.0)
             uvwha = copy.deepcopy(detections[:,:5])
             patches, sphericals, k_values = img_utills.get_tangent_patch(uvwha,
                                                                          visualize=False,
