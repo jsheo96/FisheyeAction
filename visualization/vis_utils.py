@@ -100,3 +100,29 @@ def get_maximum_from_heatmap(heatmap):
     scores = scores[select_ind][:, 0]
     pos_ind = pos_ind[select_ind][:, 0]
     return pos_ind, scores
+
+def openpifpaf_visualize_skeleton(frame, preds, sphericals, detections):
+    img_utils = FU(frame)
+    line_width = 2
+    point_radius = 3
+    result = frame
+    threshold = 0.2
+    for i in range(len(preds)):
+        pred = preds[i]
+        for anno in pred:
+            joints = []
+            for j in range(anno.data.shape[0]):
+                joint_coord = min(int(anno.data[j,1]), 255), min(int(anno.data[j,0]), 255)
+                joint_lonlat = sphericals[i, :, :, :][joint_coord[0], joint_coord[1], :]
+                joint_i, joint_j = img_utils.sphere2fisheye(joint_lonlat[0], joint_lonlat[1])
+                joints.append((int(joint_i), int(joint_j), anno.data[j,2]))
+            for j, k in anno.skeleton:
+                j, k = j-1, k-1
+                if min(joints[j][2], joints[k][2]) >= threshold:
+                    result = cv2.line(result, joints[j][:2], joints[k][:2], color=(0, 255, 0), thickness=line_width)
+            for (x, y, conf) in joints:
+                if conf > threshold:
+                    result = cv2.circle(result, (x, y), color=(0, 0, 255), radius=point_radius,
+                                        thickness=-1)
+    draw_dt_on_np(result, detections)
+    return result

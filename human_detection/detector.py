@@ -6,11 +6,12 @@ import time
 import torch
 import copy
 class DetectNet:
-    def __init__(self, use_cuda=True):
+    def __init__(self, use_cuda=True, bbox_scale=1.0):
         self.model = Detector(model_name='rapid',
-                              backbone='yolov5x',
-                              weights_path='/Data/FisheyeAction/human_detection/weights/rapid_pL1_yolov5x_CPHBMW608_Jan21_6000.ckpt',
+                              backbone='yolov5m',
+                              weights_path='/Data/FisheyeAction/human_detection/weights/rapid_pL1_yolov5m_CPHBMW608_Feb20_6000.ckpt',
                               use_cuda=use_cuda)
+        self.bbox_scale = bbox_scale
 
     def detect(self, img):
         img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
@@ -21,7 +22,7 @@ class DetectNet:
                                       test_aug=None,
                                       sort=True)
         if detections.shape[0] > 0:
-            img_utills = FU(img, bbox_scale=1.0)
+            img_utills = FU(img, bbox_scale=self.bbox_scale)
             uvwha = copy.deepcopy(detections[:,:5])
             patches, sphericals, k_values = img_utills.get_tangent_patch(uvwha,
                                                                          visualize=False,

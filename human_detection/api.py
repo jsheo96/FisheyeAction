@@ -94,8 +94,8 @@ class Detector():
             detections = torch.FloatTensor(self.tracker.update(detections))
             detections.to(device='cuda:0' if torch.cuda.is_available() else 'cpu')
             # fix angle to center
-            center = torch.FloatTensor([img.shape[1]/2, img.shape[0]/2])
-            detections[:,4] = torch.arctan((detections[:,0] - center[0]) / (center[0]-detections[:,1])) * 180 / np.pi
+            # center = torch.FloatTensor([img.shape[1]/2, img.shape[0]/2])
+            # detections[:,4] = torch.arctan((detections[:,0] - center[0]) / (center[0]-detections[:,1])) * 180 / np.pi
         return detections
 
     def detect_imgSeq(self, img_dir, **kwargs):

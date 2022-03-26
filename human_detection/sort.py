@@ -20,7 +20,7 @@ from __future__ import print_function
 import os
 import numpy as np
 import matplotlib
-matplotlib.use('TkAgg')
+matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 import matplotlib.patches as patches
 from skimage import io
@@ -55,7 +55,7 @@ def iou_batch(bb_test, bb_gt):
   """
   bb_gt = np.expand_dims(bb_gt, 0)  # (1, num_trks, 4)
   bb_test = np.expand_dims(bb_test, 1)  # (num_dets, 1, 4)
-  
+
   xx1 = np.maximum(bb_test[..., 0], bb_gt[..., 0])  # (num_dets, num_trks)
   yy1 = np.maximum(bb_test[..., 1], bb_gt[..., 1])
   xx2 = np.minimum(bb_test[..., 2], bb_gt[..., 2])
@@ -63,9 +63,9 @@ def iou_batch(bb_test, bb_gt):
   w = np.maximum(0., xx2 - xx1)
   h = np.maximum(0., yy2 - yy1)
   wh = w * h
-  o = wh / ((bb_test[..., 2] - bb_test[..., 0]) * (bb_test[..., 3] - bb_test[..., 1])                                      
-    + (bb_gt[..., 2] - bb_gt[..., 0]) * (bb_gt[..., 3] - bb_gt[..., 1]) - wh)                                              
-  return(o)  
+  o = wh / ((bb_test[..., 2] - bb_test[..., 0]) * (bb_test[..., 3] - bb_test[..., 1])
+    + (bb_gt[..., 2] - bb_gt[..., 0]) * (bb_gt[..., 3] - bb_gt[..., 1]) - wh)
+  return(o)
 
 def xywha2vertex(xywha):
     assert len(xywha.shape) == 2 and xywha.shape[-1] == 6
@@ -85,7 +85,7 @@ def xywha2vertex(xywha):
     hori = np.empty((batch, 2), dtype=np.float32)
     hori[:,0] = (w/2) * cos_a
     hori[:,1] = (w/2) * sin_a
-    
+
     tl = center + verti - hori
     tr = center + verti + hori
     br = center - verti + hori
@@ -96,7 +96,7 @@ def xywha2vertex(xywha):
 
 def iou_rotation_batch(dt, gt):
     assert gt.shape[-1] == dt.shape[-1] == 6  # [x,y,w,h,a,score]
-    
+
     dt, gt = dt.cpu().clone().detach(), gt.copy()
 
     if dt.shape[0] == 0 or gt.shape[0] == 0:
@@ -109,10 +109,10 @@ def iou_rotation_batch(dt, gt):
 
     vertex_gt = xywha2vertex(gt).tolist()
     vertex_dt = xywha2vertex(dt).tolist()
-    
+
     vertex_gt = cocomask.frPyObjects(vertex_gt, 1024, 1024)
     vertex_dt = cocomask.frPyObjects(vertex_dt, 1024, 1024)
-    ious = cocomask.iou(vertex_dt, vertex_gt, [0 for _ in vertex_dt])
+    ious = cocomask.iou(vertex_dt, vertex_gt, [0 for _ in vertex_gt])
 
     return ious
 
@@ -126,7 +126,7 @@ def convert_bbox_to_z(bbox, xywha=False):
     if xywha:
         x = bbox[0]
         y = bbox[1]
-        w = bbox[2]
+        w = bbox[2]  # w < h
         h = bbox[3]
         a = np.mod(bbox[4] + 90, 180) - 90
         s = w * h    #scale is just area
@@ -190,7 +190,7 @@ class EKF(KalmanFilter):
         # y = z - Hx
         # error (residual) between measurement and prediction
         self.y = z - np.dot(H, self.x)
-        self.y[3] = np.mod(self.y[3] + 180, 360) - 180
+        self.y[3] = np.mod(self.y[3] + 90, 180) - 90
 
         # common subexpression for speed
         PHT = np.dot(self.P, H.T)
@@ -219,7 +219,7 @@ class EKF(KalmanFilter):
         self.z = deepcopy(z)
         self.x_post = self.x.copy()
         self.P_post = self.P.copy()
-                
+
 
 class KalmanBoxTracker(object):
   """
@@ -235,7 +235,7 @@ class KalmanBoxTracker(object):
     """
     if rotation:
         #define constant velocity model
-        self.ekf = EKF(dim_x=9, dim_z=5, dim_u=4) 
+        self.ekf = EKF(dim_x=9, dim_z=5, dim_u=4)
         self.ekf.F = np.array([[1,0,0,0,0,1,0,0,0],[0,1,0,0,0,0,1,0,0],[0,0,1,0,0,0,0,1,0],[0,0,0,1,0,0,0,0,1],[0,0,0,0,1,0,0,0,0],
                               [0,0,0,0,0,1,0,0,0],[0,0,0,0,0,0,1,0,0],[0,0,0,0,0,0,0,1,0],[0,0,0,0,0,0,0,0,1]])
         self.ekf.H = np.array([[1,0,0,0,0,0,0,0,0],[0,1,0,0,0,0,0,0,0],[0,0,1,0,0,0,0,0,0],[0,0,0,1,0,0,0,0,0],[0,0,0,0,1,0,0,0,0]])
@@ -248,7 +248,7 @@ class KalmanBoxTracker(object):
         self.ekf.x[:5] = convert_bbox_to_z(bbox, xywha=True)
     else:
         #define constant velocity model
-        self.kf = KalmanFilter(dim_x=7, dim_z=4) 
+        self.kf = KalmanFilter(dim_x=7, dim_z=4)
         self.kf.F = np.array([[1,0,0,0,1,0,0],[0,1,0,0,0,1,0],[0,0,1,0,0,0,1],[0,0,0,1,0,0,0],  # x, y, s, r
                               [0,0,0,0,1,0,0],[0,0,0,0,0,1,0],[0,0,0,0,0,0,1]])  # v_x, v_y, v_s
         self.kf.H = np.array([[1,0,0,0,0,0,0],[0,1,0,0,0,0,0],[0,0,1,0,0,0,0],[0,0,0,1,0,0,0]])
@@ -277,7 +277,7 @@ class KalmanBoxTracker(object):
     self.history = []
     self.hits += 1
     self.hit_streak += 1
-    z = convert_bbox_to_z(bbox, self.rotation) 
+    z = convert_bbox_to_z(bbox, self.rotation)
     if self.rotation:
         self.ekf.update(z=z)
     else:
@@ -424,11 +424,11 @@ def parse_args():
     parser.add_argument('--display', dest='display', help='Display online tracker output (slow) [False]',action='store_true')
     parser.add_argument("--seq_path", help="Path to detections.", type=str, default='data')
     parser.add_argument("--phase", help="Subdirectory in seq_path.", type=str, default='train')
-    parser.add_argument("--max_age", 
-                        help="Maximum number of frames to keep alive a track without associated detections.", 
+    parser.add_argument("--max_age",
+                        help="Maximum number of frames to keep alive a track without associated detections.",
                         type=int, default=1)
-    parser.add_argument("--min_hits", 
-                        help="Minimum number of associated detections before track is initialised.", 
+    parser.add_argument("--min_hits",
+                        help="Minimum number of associated detections before track is initialised.",
                         type=int, default=3)
     parser.add_argument("--iou_threshold", help="Minimum IOU for match.", type=float, default=0.3)
     args = parser.parse_args()
@@ -454,12 +454,12 @@ if __name__ == '__main__':
     os.makedirs('output')
   pattern = os.path.join(args.seq_path, phase, '*', 'det', 'det.txt')
   for seq_dets_fn in glob.glob(pattern):
-    mot_tracker = Sort(max_age=args.max_age, 
+    mot_tracker = Sort(max_age=args.max_age,
                        min_hits=args.min_hits,
                        iou_threshold=args.iou_threshold) #create instance of the SORT tracker
     seq_dets = np.loadtxt(seq_dets_fn, delimiter=',')
     seq = seq_dets_fn[pattern.find('*'):].split(os.path.sep)[0]
-    
+
     with open(os.path.join('output', '%s.txt'%(seq)),'w') as out_file:
       print("Processing %s."%(seq))
       for frame in range(int(seq_dets[:,0].max())):
